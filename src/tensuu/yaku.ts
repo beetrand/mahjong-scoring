@@ -1,0 +1,293 @@
+// 役判定システム
+
+import { Tile } from '../common/tile';
+import type { MentsuCombination } from './hand-analyzer';
+import type { YakuContext } from '../common/types';
+
+export interface YakuResult {
+  readonly name: string;
+  readonly hanValue: number;
+  readonly isYakuman: boolean;
+  readonly isSuppressed: boolean;
+}
+
+export abstract class Yaku {
+  public abstract readonly name: string;
+  public abstract readonly hanValue: number;
+  public abstract readonly isYakuman: boolean;
+
+  public abstract isApplicable(combination: MentsuCombination, context: YakuContext): boolean;
+  
+  public suppressedBy(): string[] {
+    return [];
+  }
+
+  public getHanValue(): number {
+    return this.hanValue;
+  }
+}
+
+// 1翻役
+export class RiichiYaku extends Yaku {
+  public readonly name = 'リーチ';
+  public readonly hanValue = 1;
+  public readonly isYakuman = false;
+
+  public isApplicable(_combination: MentsuCombination, context: YakuContext): boolean {
+    return context.isRiichi;
+  }
+}
+
+export class TsumoYaku extends Yaku {
+  public readonly name = 'ツモ';
+  public readonly hanValue = 1;
+  public readonly isYakuman = false;
+
+  public isApplicable(_combination: MentsuCombination, context: YakuContext): boolean {
+    return context.isTsumo && context.isOpenHand === false;
+  }
+}
+
+export class PinfuYaku extends Yaku {
+  public readonly name = '平和';
+  public readonly hanValue = 1;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, context: YakuContext): boolean {
+    if (context.isOpenHand) return false;
+    
+    // 4面子が全て順子
+    if (combination.melds.some(meld => meld.type !== 'sequence')) {
+      return false;
+    }
+
+    // 雀頭が役牌でない
+    if (combination.pair.isValuePair()) {
+      return false;
+    }
+
+    // 両面待ち（簡略判定）
+    return combination.waitType === 'ryanmen' as any;
+  }
+}
+
+export class TanyaoYaku extends Yaku {
+  public readonly name = '断幺九';
+  public readonly hanValue = 1;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    const allTiles = [
+      ...combination.melds.flatMap(meld => meld.tiles),
+      ...combination.pair.tiles
+    ];
+
+    return allTiles.every(tile => tile.isSimple());
+  }
+}
+
+export class YakuhaiYaku extends Yaku {
+  public readonly name = '役牌';
+  public readonly hanValue = 1;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, context: YakuContext): boolean {
+    return combination.melds.some(meld => 
+      meld.type === 'triplet' && this.isYakuhaiTile(meld.getTileValue(), context)
+    ) || combination.pair.isValuePair();
+  }
+
+  private isYakuhaiTile(tile: Tile, context: YakuContext): boolean {
+    if (tile.isDragon()) return true;
+    if (tile.isWind()) {
+      return tile.value === context.gameContext.roundWind || 
+             tile.value === context.gameContext.playerWind;
+    }
+    return false;
+  }
+}
+
+// 2翻役
+export class ChitoitsuYaku extends Yaku {
+  public readonly name = '七対子';
+  public readonly hanValue = 2;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    return combination.melds.length === 6 && 
+           combination.melds.every(meld => meld.type === 'pair');
+  }
+}
+
+export class IttsuYaku extends Yaku {
+  public readonly name = '一気通貫';
+  public readonly hanValue = 2;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    const sequences = combination.melds.filter(meld => meld.type === 'sequence');
+    
+    for (const suit of ['man', 'pin', 'sou'] as const) {
+      const suitSequences = sequences.filter(seq => seq.getTileValue().suit === suit);
+      
+      const has123 = suitSequences.some(seq => seq.getTileValue().value === 1);
+      const has456 = suitSequences.some(seq => seq.getTileValue().value === 4);
+      const has789 = suitSequences.some(seq => seq.getTileValue().value === 7);
+      
+      if (has123 && has456 && has789) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+}
+
+export class SanankoYaku extends Yaku {
+  public readonly name = '三暗刻';
+  public readonly hanValue = 2;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    const concealedTriplets = combination.melds.filter(meld => 
+      (meld.type === 'triplet' || meld.type === 'quad') && meld.isConcealed
+    );
+    
+    return concealedTriplets.length === 3;
+  }
+}
+
+// 役満
+export class KokushimusouYaku extends Yaku {
+  public readonly name = '国士無双';
+  public readonly hanValue = 13;
+  public readonly isYakuman = true;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    // 国士無双は特殊な形なので、combination.meldsが空
+    if (combination.melds.length !== 0) return false;
+    
+    const allTiles = [...combination.pair.tiles];
+    
+    // 13種類の幺九牌 + 1枚の対子
+    const terminalTypes = new Set();
+    for (const tile of allTiles) {
+      if (!tile.isTerminal()) return false;
+      terminalTypes.add(`${tile.suit}-${tile.value}`);
+    }
+    
+    return terminalTypes.size === 13;
+  }
+}
+
+export class SuuankoYaku extends Yaku {
+  public readonly name = '四暗刻';
+  public readonly hanValue = 13;
+  public readonly isYakuman = true;
+
+  public isApplicable(combination: MentsuCombination, context: YakuContext): boolean {
+    const concealedTriplets = combination.melds.filter(meld => 
+      (meld.type === 'triplet' || meld.type === 'quad') && meld.isConcealed
+    );
+    
+    return concealedTriplets.length === 4 && context.isTsumo;
+  }
+}
+
+export class DaisangenYaku extends Yaku {
+  public readonly name = '大三元';
+  public readonly hanValue = 13;
+  public readonly isYakuman = true;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    const dragonTriplets = combination.melds.filter(meld => 
+      (meld.type === 'triplet' || meld.type === 'quad') && 
+      meld.getTileValue().isDragon()
+    );
+    
+    const dragonValues = new Set(dragonTriplets.map(meld => meld.getTileValue().value));
+    return dragonValues.size === 3; // 白發中の3種類
+  }
+}
+
+// 役判定エンジン
+export class YakuDetector {
+  private yakuList: Yaku[];
+
+  constructor() {
+    this.yakuList = [
+      new RiichiYaku(),
+      new TsumoYaku(),
+      new PinfuYaku(),
+      new TanyaoYaku(),
+      new YakuhaiYaku(),
+      new ChitoitsuYaku(),
+      new SanankoYaku(),
+      new KokushimusouYaku(),
+      new SuuankoYaku(),
+      new DaisangenYaku(),
+      // 他の役も同様に追加
+    ];
+  }
+
+  public detectYaku(combination: MentsuCombination, context: YakuContext): YakuResult[] {
+    const results: YakuResult[] = [];
+    
+    for (const yaku of this.yakuList) {
+      if (yaku.isApplicable(combination, context)) {
+        results.push({
+          name: yaku.name,
+          hanValue: yaku.hanValue,
+          isYakuman: yaku.isYakuman,
+          isSuppressed: false
+        });
+      }
+    }
+
+    return this.applySuppression(results);
+  }
+
+  public calculateTotalHan(yakuResults: YakuResult[]): number {
+    const activeYaku = yakuResults.filter(result => !result.isSuppressed);
+    
+    // 役満がある場合は役満のみカウント
+    const yakumanYaku = activeYaku.filter(result => result.isYakuman);
+    if (yakumanYaku.length > 0) {
+      return yakumanYaku.reduce((total, yaku) => total + yaku.hanValue, 0);
+    }
+    
+    return activeYaku.reduce((total, yaku) => total + yaku.hanValue, 0);
+  }
+
+  private applySuppression(yakuResults: YakuResult[]): YakuResult[] {
+    // 役の抑制関係を適用
+    const results = [...yakuResults];
+    
+    // 平和とツモの複合は平和を優先（符計算に影響）
+    const hasPinfu = results.some(r => r.name === '平和');
+    const hasTsumo = results.some(r => r.name === 'ツモ');
+    
+    if (hasPinfu && hasTsumo) {
+      const tsumoIndex = results.findIndex(r => r.name === 'ツモ');
+      if (tsumoIndex >= 0) {
+        results[tsumoIndex] = { ...results[tsumoIndex], isSuppressed: true };
+      }
+    }
+    
+    // 役満がある場合は通常役を抑制
+    const hasYakuman = results.some(r => r.isYakuman);
+    if (hasYakuman) {
+      for (let i = 0; i < results.length; i++) {
+        if (!results[i].isYakuman) {
+          results[i] = { ...results[i], isSuppressed: true };
+        }
+      }
+    }
+    
+    return results;
+  }
+
+  public addYaku(yaku: Yaku): void {
+    this.yakuList.push(yaku);
+  }
+}
