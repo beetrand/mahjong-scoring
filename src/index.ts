@@ -2,8 +2,10 @@
 
 export { Tile } from './common/tile';
 export { Mentsu } from './common/mentsu';
-export { HandAnalyzer } from './tensuu/hand-analyzer';
 export { ShantenCalculator } from './tensuu/shanten-calculator';
+export { BaseShantenCalculator } from './tensuu/base-shanten-calculator';
+export { UsefulTilesCalculator } from './tensuu/useful-tiles-calculator';
+export { MentsuCombinationFinder } from './tensuu/mentsu-combination-finder';
 export { 
   Yaku, 
   YakuDetector,
@@ -26,8 +28,10 @@ export {
   ScoringResult,
   LimitHandType
 } from './tensuu/scoring';
+export { Hand } from './common/hand';
 import { MahjongScorer } from './tensuu/mahjong-scorer';
-export { MahjongScorer, Hand } from './tensuu/mahjong-scorer';
+import { Hand } from './common/hand';
+export { MahjongScorer };
 export { 
   TileSuit,
   MentsuType,
@@ -39,8 +43,8 @@ export {
 } from './common/types';
 
 // 型のエクスポート
-export type { MentsuCombination } from './tensuu/hand-analyzer';
-export type { ShantenResult } from './tensuu/shanten-calculator';
+export type { MentsuCombination } from './tensuu/shanten-calculator';
+export type { BasicShantenResult, DetailedShantenResult } from './tensuu/shanten-calculator';
 export type { YakuResult } from './tensuu/yaku';
 export type { 
   FuResult,
@@ -76,3 +80,16 @@ export function createGameContext(
 export function createDefaultScorer() {
   return new MahjongScorer();
 }
+
+// 便利関数: Handオブジェクトからシャンテン数を計算
+export function analyzeMeldHand(handStr: string, options: {
+  drawnTile: string;        // ツモ牌（和了時は和了牌、非和了時も意味を持つ）
+  isTsumo: boolean;
+  gameContext: any;
+  isRiichi?: boolean;
+}) {
+  const hand = Hand.fromStringWithMelds(handStr, options);
+  const scorer = new MahjongScorer();
+  return scorer.analyzeHandState(hand);
+}
+

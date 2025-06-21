@@ -1,6 +1,6 @@
 // 麻雀点数計算システム 使用例
 
-import { MahjongScorer, createGameContext, Tile } from './index';
+import { MahjongScorer, createGameContext, Tile, Hand } from './index';
 
 function main() {
   console.log('=== 麻雀点数計算システム 使用例 ===\n');
@@ -71,24 +71,40 @@ function main() {
   // 例4: シャンテン数計算
   console.log('【例4】シャンテン数計算');
   const shantenTiles = '123m456p78s11223z'; // 13枚の手牌
-  const shantenResult = scorer.calculateShantenFromString(shantenTiles);
+  const shantenResult = scorer.calculateShantenFromString(shantenTiles, '3z', gameContext);
   
   console.log(`手牌: ${shantenTiles}`);
   console.log(`通常手シャンテン: ${shantenResult.regularShanten}`);
   console.log(`七対子シャンテン: ${shantenResult.chitoitsuShanten}`);
   console.log(`国士シャンテン: ${shantenResult.kokushiShanten}`);
-  console.log(`最小シャンテン: ${shantenResult.minimumShanten}`);
-  console.log(`最適な手の形: ${shantenResult.bestHandType}\n`);
+  console.log(`最小シャンテン: ${shantenResult.shanten}`);
+  console.log(`最適な手の形: ${shantenResult.handType}\n`);
 
-  // 例5: 手牌解析
-  console.log('【例5】手牌解析');
-  const analysisTiles = Tile.parseHandString('123m456p789s1122z1m');
-  const analysis = scorer.analyzeHand(analysisTiles);
+  // 例4: シャンテン数計算
+  console.log('【例4-2】シャンテン数計算');
+  const shantenTiles2 = '11234567888999m'; // 13枚の手牌
+  const shantenResult2 = scorer.calculateShantenFromString(shantenTiles2, '9m', gameContext);
+  
+  console.log(`手牌: ${shantenTiles2}`);
+  console.log(`通常手シャンテン: ${shantenResult2.regularShanten}`);
+  console.log(`七対子シャンテン: ${shantenResult2.chitoitsuShanten}`);
+  console.log(`国士シャンテン: ${shantenResult2.kokushiShanten}`);
+  console.log(`最小シャンテン: ${shantenResult2.shanten}`);
+  console.log(`最適な手の形: ${shantenResult2.handType}\n`);
+
+  // 例5: 手牌状態分析
+  console.log('【例5】手牌状態分析');
+  const analysisHand = Hand.fromString('123m456p789s1122z1m', {
+    drawnTile: '1m',
+    isTsumo: true,
+    gameContext
+  });
+  const analysis = scorer.analyzeHandState(analysisHand);
   
   console.log(`手牌: 123m456p789s1122z1m`);
-  console.log(`和了形か: ${analysis.isWinning}`);
-  console.log(`可能な組み合わせ数: ${analysis.combinations.length}`);
-  console.log(`シャンテン数: ${analysis.shanten.minimumShanten}\n`);
+  console.log(`状態: ${analysis.message}`);
+  console.log(`シャンテン数: ${analysis.shanten}`);
+  console.log(`手型: ${analysis.bestHandType}\n`);
 
   // 例6: ボーナス点数込みの計算
   console.log('【例6】ボーナス点数込み（リーチ棒・本場）');

@@ -2,7 +2,7 @@
 
 import { Mentsu } from '../common/mentsu';
 import { WaitType } from '../common/types';
-import type { MentsuCombination } from './hand-analyzer';
+import type { MentsuCombination } from './shanten-calculator';
 import type { YakuResult } from './yaku';
 import type { FuContext, BonusPoints } from '../common/types';
 
@@ -95,15 +95,15 @@ export class FuCalculator {
 
   private getWinningMethodFu(context: FuContext): number {
     if (context.isTsumo) {
-      return 2;
+      return 2; // ツモボーナス
+    } else if (!context.isOpenHand) {
+      return 10; // 門前ロンボーナス（門前清栄和）
     }
     return 0;
   }
 
-  private getConcealedFu(context: FuContext): number {
-    if (!context.isOpenHand) {
-      return 10;
-    }
+  private getConcealedFu(_context: FuContext): number {
+    // 門前清栄和は getWinningMethodFu で処理するため、ここでは0
     return 0;
   }
 

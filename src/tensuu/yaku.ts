@@ -1,7 +1,7 @@
 // 役判定システム
 
 import { Tile } from '../common/tile';
-import type { MentsuCombination } from './hand-analyzer';
+import type { MentsuCombination } from './shanten-calculator';
 import type { YakuContext } from '../common/types';
 
 export interface YakuResult {
@@ -22,7 +22,7 @@ export abstract class Yaku {
     return [];
   }
 
-  public getHanValue(): number {
+  public getHanValue(_context?: YakuContext): number {
     return this.hanValue;
   }
 }
@@ -82,6 +82,7 @@ export class TanyaoYaku extends Yaku {
       ...combination.pair.tiles
     ];
 
+    // 副露がある場合も適用可能（クイタン）
     return allTiles.every(tile => tile.isSimple());
   }
 }
@@ -140,6 +141,108 @@ export class IttsuYaku extends Yaku {
     }
     
     return false;
+  }
+  
+  public getHanValue(context: YakuContext): number {
+    // 副露がある場合は1翻（喰い下がり）
+    return context.isOpenHand ? 1 : 2;
+  }
+}
+
+// 副露関連の役
+export class ToitoiYaku extends Yaku {
+  public readonly name = '対々和';
+  public readonly hanValue = 2;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    // 4つの面子が全て刻子または槓子
+    const tripletOrQuads = combination.melds.filter(meld => 
+      meld.type === 'triplet' || meld.type === 'quad'
+    );
+    
+    return tripletOrQuads.length === 4;
+  }
+}
+
+export class SanshokudoujunYaku extends Yaku {
+  public readonly name = '三色同順';
+  public readonly hanValue = 2;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    const sequences = combination.melds.filter(meld => meld.type === 'sequence');
+    
+    // 同じ数字の順子が3色にあるかチェック
+    for (let value = 1; value <= 7; value++) {
+      const suits = ['man', 'pin', 'sou'] as const;
+      const foundSuits = suits.filter(suit => 
+        sequences.some(seq => {
+          const firstTile = seq.getTileValue();
+          return firstTile.suit === suit && firstTile.value === value;
+        })
+      );
+      
+      if (foundSuits.length === 3) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  public getHanValue(context: YakuContext): number {
+    // 副露がある場合は1翻（喰い下がり）
+    return context.isOpenHand ? 1 : 2;
+  }
+}
+
+export class SanshokudoukouYaku extends Yaku {
+  public readonly name = '三色同刻';
+  public readonly hanValue = 2;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    const triplets = combination.melds.filter(meld => 
+      meld.type === 'triplet' || meld.type === 'quad'
+    );
+    
+    // 同じ数字の刻子が3色にあるかチェック
+    for (let value = 1; value <= 9; value++) {
+      const suits = ['man', 'pin', 'sou'] as const;
+      const foundSuits = suits.filter(suit => 
+        triplets.some(triplet => {
+          const tile = triplet.getTileValue();
+          return tile.suit === suit && tile.value === value;
+        })
+      );
+      
+      if (foundSuits.length === 3) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+}
+
+export class HonroutouYaku extends Yaku {
+  public readonly name = '混老頭';
+  public readonly hanValue = 2;
+  public readonly isYakuman = false;
+
+  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+    const allTiles = [
+      ...combination.melds.flatMap(meld => meld.tiles),
+      ...combination.pair.tiles
+    ];
+
+    // 全て刻子・槓子・対子（順子がない）
+    const hasSequence = combination.melds.some(meld => meld.type === 'sequence');
+    if (hasSequence) return false;
+
+    // 全て幺九牌（1・9・字牌）
+    return allTiles.every(tile => tile.isTerminal());
   }
 }
 
@@ -222,11 +325,15 @@ export class YakuDetector {
       new TanyaoYaku(),
       new YakuhaiYaku(),
       new ChitoitsuYaku(),
+      new IttsuYaku(),
+      new ToitoiYaku(),
+      new SanshokudoujunYaku(),
+      new SanshokudoukouYaku(),
+      new HonroutouYaku(),
       new SanankoYaku(),
       new KokushimusouYaku(),
       new SuuankoYaku(),
       new DaisangenYaku(),
-      // 他の役も同様に追加
     ];
   }
 
@@ -235,9 +342,12 @@ export class YakuDetector {
     
     for (const yaku of this.yakuList) {
       if (yaku.isApplicable(combination, context)) {
+        // 喰い下がりを考慮した翻数を取得
+        const hanValue = this.getAdjustedHanValue(yaku, context);
+        
         results.push({
           name: yaku.name,
-          hanValue: yaku.hanValue,
+          hanValue: hanValue,
           isYakuman: yaku.isYakuman,
           isSuppressed: false
         });
@@ -245,6 +355,15 @@ export class YakuDetector {
     }
 
     return this.applySuppression(results);
+  }
+
+  private getAdjustedHanValue(yaku: Yaku, context: YakuContext): number {
+    // 喰い下がり対応の役かチェック
+    if (yaku instanceof IttsuYaku || yaku instanceof SanshokudoujunYaku) {
+      return context.isOpenHand ? yaku.hanValue - 1 : yaku.hanValue;
+    }
+    
+    return yaku.hanValue;
   }
 
   public calculateTotalHan(yakuResults: YakuResult[]): number {

@@ -99,12 +99,22 @@ export class Mentsu {
         return 0; // 順子は0符
         
       case 'triplet':
-        let baseFu = tile.isTerminal() || tile.isHonor() ? 4 : 2; // 幺九牌は4符、中張牌は2符
-        return this.isConcealed ? baseFu * 2 : baseFu; // 暗刻は2倍
+        if (tile.isTerminal() || tile.isHonor()) {
+          // 幺九牌: 暗刻8符、明刻4符
+          return this.isConcealed ? 8 : 4;
+        } else {
+          // 中張牌: 暗刻4符、明刻2符
+          return this.isConcealed ? 4 : 2;
+        }
         
       case 'quad':
-        let quadFu = tile.isTerminal() || tile.isHonor() ? 16 : 8; // 幺九牌は16符、中張牌は8符
-        return this.isConcealed ? quadFu * 2 : quadFu; // 暗槓は2倍
+        if (tile.isTerminal() || tile.isHonor()) {
+          // 幺九牌: 暗槓32符、明槓16符
+          return this.isConcealed ? 32 : 16;
+        } else {
+          // 中張牌: 暗槓16符、明槓8符
+          return this.isConcealed ? 16 : 8;
+        }
         
       case 'pair':
         // 役牌の雀頭は2符

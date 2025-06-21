@@ -1,282 +1,262 @@
-// シャンテン数計算クラス
+// 新しいシャンテン数計算統合クラス
 
 import { Tile } from '../common/tile';
-import { HandType } from '../common/types';
+import { Hand } from '../common/hand';
+import { HandType, WaitType } from '../common/types';
+import type { ShantenConfig, ShantenOptions } from '../common/types';
 
-export interface ShantenResult {
+import { BaseShantenCalculator } from './base-shanten-calculator';
+import { UsefulTilesCalculator } from './useful-tiles-calculator';
+import { MentsuCombinationFinder } from './mentsu-combination-finder';
+import type { MentsuCombination } from './mentsu-combination-finder';
+
+// 型をエクスポート
+export type { MentsuCombination } from './mentsu-combination-finder';
+
+// 軽量シャンテン結果（基本情報のみ）
+export interface BasicShantenResult {
+  readonly shanten: number;
+  readonly handType: HandType;
+}
+
+// 詳細シャンテン結果（全情報含む）
+export interface DetailedShantenResult extends BasicShantenResult {
   readonly regularShanten: number;
   readonly chitoitsuShanten: number;
   readonly kokushiShanten: number;
-  readonly minimumShanten: number;
-  readonly bestHandType: HandType;
-  readonly usefulTiles: Tile[];
+  usefulTiles?: Tile[];
+  mentsuCombinations?: MentsuCombination[];
+  waitType?: WaitType;
 }
 
+/**
+ * シャンテン数計算統合クラス
+ * 各計算機を統合し、設定とキャッシュを管理
+ */
 export class ShantenCalculator {
+  private config: ShantenConfig;
+  private cache = new Map<string, BasicShantenResult>();
+  
+  // 各計算機のインスタンス
+  private baseShantenCalculator: BaseShantenCalculator;
+  private usefulTilesCalculator: UsefulTilesCalculator;
+  private mentsuCombinationFinder: MentsuCombinationFinder;
 
-  public calculateMinimumShanten(tiles: Tile[]): ShantenResult {
-    if (tiles.length !== 13 && tiles.length !== 14) {
-      throw new Error('Hand must have 13 or 14 tiles for shanten calculation');
-    }
-
-    const regularShanten = this.calculateRegularShanten(tiles);
-    const chitoitsuShanten = this.calculateChitoitsuShanten(tiles);
-    const kokushiShanten = this.calculateKokushiShanten(tiles);
-
-    const minimumShanten = Math.min(regularShanten, chitoitsuShanten, kokushiShanten);
+  constructor(config: ShantenConfig = {}) {
+    this.config = {
+      enableRegular: true,
+      enableChitoitsu: true,
+      enableKokushi: true,
+      cacheResults: false,
+      ...config
+    };
     
-    let bestHandType: HandType;
-    if (minimumShanten === regularShanten) {
-      bestHandType = HandType.REGULAR;
-    } else if (minimumShanten === chitoitsuShanten) {
-      bestHandType = HandType.CHITOITSU;
-    } else {
-      bestHandType = HandType.KOKUSHI;
+    // 各計算機を初期化
+    this.baseShantenCalculator = new BaseShantenCalculator();
+    this.usefulTilesCalculator = new UsefulTilesCalculator();
+    this.mentsuCombinationFinder = new MentsuCombinationFinder();
+  }
+
+  /**
+   * 軽量シャンテン数計算（基本情報のみ）
+   * 最も高速な計算で、シャンテン数と最適手牌タイプのみを返す
+   */
+  public calculateShanten(hand: Hand): number {
+    const basicResult = this.calculateBasicShanten(hand);
+    return basicResult.shanten;
+  }
+
+  /**
+   * 基本シャンテン結果計算
+   * シャンテン数と最適手牌タイプを返す
+   * @param hand 手牌オブジェクト（副露情報含む）
+   */
+  public calculateBasicShanten(hand: Hand): BasicShantenResult {
+    const tiles = hand.getEffectiveTilesForShanten();
+    const meldCount = hand.getMeldCount();
+    
+    // 副露を考慮した正しいタイル数検証
+    const expectedCount = hand.calculateExpectedTileCount();
+    if (tiles.length !== expectedCount && tiles.length !== expectedCount - 1) {
+      throw new Error(`Hand must have ${expectedCount} or ${expectedCount - 1} concealed tiles for shanten calculation, got ${tiles.length}`);
     }
 
-    const usefulTiles = this.calculateUsefulTiles(tiles, bestHandType);
+    const cacheKey = this.generateCacheKey(tiles, meldCount);
+    if (this.config.cacheResults && this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
+    }
 
-    return {
+    const results: { shanten: number; handType: HandType }[] = [];
+
+    if (this.config.enableRegular) {
+      results.push({
+        shanten: this.baseShantenCalculator.calculateRegularShantenFromHand(hand),
+        handType: HandType.REGULAR
+      });
+    }
+
+    if (this.config.enableChitoitsu) {
+      results.push({
+        shanten: this.baseShantenCalculator.calculateChitoitsuShantenFromHand(hand),
+        handType: HandType.CHITOITSU
+      });
+    }
+
+    if (this.config.enableKokushi) {
+      results.push({
+        shanten: this.baseShantenCalculator.calculateKokushiShantenFromHand(hand),
+        handType: HandType.KOKUSHI
+      });
+    }
+
+    if (results.length === 0) {
+      throw new Error('No hand types enabled for calculation');
+    }
+
+    // 最小シャンテン数とその手牌タイプを選択
+    const bestResult = results.reduce((best, current) => 
+      current.shanten < best.shanten ? current : best
+    );
+
+    const result: BasicShantenResult = {
+      shanten: bestResult.shanten,
+      handType: bestResult.handType
+    };
+
+    if (this.config.cacheResults) {
+      this.cache.set(cacheKey, result);
+    }
+
+    return result;
+  }
+
+  /**
+   * 詳細シャンテン結果計算
+   * オプションに応じて有効牌や面子組み合わせも含む
+   * @param hand 手牌オブジェクト（副露情報含む）
+   * @param options 計算オプション
+   */
+  public calculateShantenDetailed(hand: Hand, options: ShantenOptions = {}): DetailedShantenResult {
+    const tiles = hand.getEffectiveTilesForShanten();
+    
+    const expectedCount = hand.calculateExpectedTileCount();
+    if (tiles.length !== expectedCount && tiles.length !== expectedCount - 1) {
+      throw new Error(`Hand must have ${expectedCount} or ${expectedCount - 1} concealed tiles for shanten calculation, got ${tiles.length}`);
+    }
+
+    // 基本シャンテン計算
+    const basicResult = this.calculateBasicShanten(hand);
+
+    // 各手牌タイプのシャンテン数を計算（HandベースAPI使用）
+    const regularShanten = this.config.enableRegular !== false ? 
+      this.baseShantenCalculator.calculateRegularShantenFromHand(hand) : Infinity;
+    const chitoitsuShanten = this.config.enableChitoitsu !== false ? 
+      this.baseShantenCalculator.calculateChitoitsuShantenFromHand(hand) : Infinity;
+    const kokushiShanten = this.config.enableKokushi !== false ? 
+      this.baseShantenCalculator.calculateKokushiShantenFromHand(hand) : Infinity;
+
+    const result: DetailedShantenResult = {
+      shanten: basicResult.shanten,
+      handType: basicResult.handType,
       regularShanten,
       chitoitsuShanten,
-      kokushiShanten,
-      minimumShanten,
-      bestHandType,
-      usefulTiles
+      kokushiShanten
     };
-  }
 
-  public calculateRegularShanten(tiles: Tile[]): number {
-    const tileCounts = this.countTiles(tiles);
-    return this.calculateRegularShantenFromCounts(tileCounts);
-  }
-
-  private calculateRegularShantenFromCounts(tileCounts: Map<string, number>): number {
-    let minShanten = 8;
-    
-    // 全ての対子候補を試す
-    for (const [tileKey, count] of tileCounts) {
-      if (count >= 2) {
-        // この牌を雀頭とする
-        const modifiedCounts = new Map(tileCounts);
-        modifiedCounts.set(tileKey, count - 2);
-        
-        const { mentsuCount, tatsuCount } = this.analyzeMentsu(modifiedCounts);
-        const shanten = 8 - mentsuCount * 2 - tatsuCount;
-        minShanten = Math.min(minShanten, shanten);
-      }
-    }
-    
-    return minShanten;
-  }
-
-  private analyzeMentsu(tileCounts: Map<string, number>): { mentsuCount: number, tatsuCount: number } {
-    let mentsuCount = 0;
-    let tatsuCount = 0;
-    const counts = new Map(tileCounts);
-
-    // 刻子を除去
-    for (const [_tileKey, count] of counts) {
-      if (count >= 3) {
-        const tripletCount = Math.floor(count / 3);
-        mentsuCount += tripletCount;
-        counts.set(_tileKey, count - tripletCount * 3);
-      }
+    // オプションに応じて追加計算
+    if (options.includeUsefulTiles) {
+      result.usefulTiles = this.usefulTilesCalculator.calculateUsefulTiles(tiles, basicResult.handType);
     }
 
-    // 順子を除去（数牌のみ）
-    this.removeSequences(counts);
-    mentsuCount += this.sequenceCount;
+    if (options.includeMentsuCombinations && basicResult.shanten === -1) {
+      result.mentsuCombinations = this.mentsuCombinationFinder.findAllCombinations(tiles);
+    }
 
-    // 塔子をカウント
-    tatsuCount = this.countTatsu(counts);
+    if (options.includeWaitType && basicResult.shanten <= 0) {
+      result.waitType = this.calculateWaitType(tiles, basicResult.handType);
+    }
 
-    return { mentsuCount, tatsuCount };
+    return result;
   }
 
-  private sequenceCount = 0;
+  /**
+   * 有効牌を独立して計算
+   */
+  public calculateUsefulTiles(hand: Hand, targetHandType?: HandType): Tile[] {
+    const tiles = hand.getEffectiveTilesForShanten();
+    return this.usefulTilesCalculator.calculateUsefulTiles(tiles, targetHandType);
+  }
 
-  private removeSequences(counts: Map<string, number>): void {
-    this.sequenceCount = 0;
-    
-    for (const suit of ['man', 'pin', 'sou']) {
-      for (let value = 1; value <= 7; value++) {
-        const key1 = `${suit}-${value}`;
-        const key2 = `${suit}-${value + 1}`;
-        const key3 = `${suit}-${value + 2}`;
-        
-        const count1 = counts.get(key1) || 0;
-        const count2 = counts.get(key2) || 0;
-        const count3 = counts.get(key3) || 0;
-        
-        const sequenceCount = Math.min(count1, count2, count3);
-        if (sequenceCount > 0) {
-          this.sequenceCount += sequenceCount;
-          counts.set(key1, count1 - sequenceCount);
-          counts.set(key2, count2 - sequenceCount);
-          counts.set(key3, count3 - sequenceCount);
-        }
-      }
+
+  /**
+   * 面子組み合わせを独立して計算
+   */
+  public findAllMentsuCombinationsFromHand(hand: Hand): MentsuCombination[] {
+    const tiles = hand.getEffectiveTilesForShanten();
+    return this.mentsuCombinationFinder.findAllCombinations(tiles);
+  }
+
+  /**
+   * Hand オブジェクトのシャンテン数を計算（副露対応）
+   */
+  public calculateHandShanten(hand: Hand): DetailedShantenResult {
+    const detailedResult = this.calculateShantenDetailed(hand, {
+      includeUsefulTiles: true,
+      includeMentsuCombinations: false,
+      includeWaitType: true
+    });
+
+    return detailedResult;
+  }
+
+  /**
+   * Hand オブジェクトが和了形かチェック
+   */
+  public isWinningHand(hand: Hand): boolean {
+    const shantenResult = this.calculateHandShanten(hand);
+    return shantenResult.shanten === -1;
+  }
+
+  /**
+   * 待ちの形を計算（簡易実装）
+   */
+  private calculateWaitType(_tiles: Tile[], handType: HandType): WaitType {
+    // 簡易実装：手牌タイプに基づく基本的な待ち
+    switch (handType) {
+      case HandType.CHITOITSU:
+        return WaitType.TANKI;
+      case HandType.KOKUSHI:
+        return WaitType.TANKI;
+      default:
+        return WaitType.RYANMEN; // デフォルト
     }
   }
 
-  private countTatsu(counts: Map<string, number>): number {
-    let tatsuCount = 0;
-
-    // 対子をカウント
-    for (const [_tileKey, count] of counts) {
-      if (count >= 2) {
-        tatsuCount += Math.floor(count / 2);
-      }
-    }
-
-    // 両面・嵌張塔子をカウント（数牌のみ）
-    for (const suit of ['man', 'pin', 'sou']) {
-      for (let value = 1; value <= 8; value++) {
-        const key1 = `${suit}-${value}`;
-        const key2 = `${suit}-${value + 1}`;
-        
-        const count1 = counts.get(key1) || 0;
-        const count2 = counts.get(key2) || 0;
-        
-        if (count1 > 0 && count2 > 0) {
-          const tatsuCountForThisPair = Math.min(count1, count2);
-          tatsuCount += tatsuCountForThisPair;
-          counts.set(key1, count1 - tatsuCountForThisPair);
-          counts.set(key2, count2 - tatsuCountForThisPair);
-        }
-      }
-    }
-
-    return Math.min(tatsuCount, 4); // 最大4つまで
+  /**
+   * キャッシュキーを生成
+   */
+  private generateCacheKey(tiles: Tile[], meldCount: number = 0): string {
+    const tileKey = tiles
+      .map(tile => tile.toString())
+      .sort()
+      .join(',');
+    return `${tileKey}:m${meldCount}`;
   }
 
-  public calculateChitoitsuShanten(tiles: Tile[]): number {
-    const tileCounts = this.countTiles(tiles);
-    let pairCount = 0;
-    let uniqueCount = 0;
-
-    for (const [_tileKey, count] of tileCounts) {
-      if (count >= 2) {
-        pairCount += Math.floor(count / 2);
-      }
-      if (count > 0) {
-        uniqueCount++;
-      }
-    }
-
-    // 七対子のシャンテン数計算
-    const shanten = 6 - pairCount + Math.max(0, 7 - uniqueCount);
-    return Math.max(0, shanten);
+  /**
+   * キャッシュをクリア
+   */
+  public clearCache(): void {
+    this.cache.clear();
   }
 
-  public calculateKokushiShanten(tiles: Tile[]): number {
-    const terminalTypes = [
-      'man-1', 'man-9', 'pin-1', 'pin-9', 'sou-1', 'sou-9',
-      'wind-1', 'wind-2', 'wind-3', 'wind-4',
-      'dragon-1', 'dragon-2', 'dragon-3'
-    ];
-
-    const tileCounts = this.countTiles(tiles);
-    let terminalKindCount = 0;
-    let hasPair = false;
-
-    for (const terminalType of terminalTypes) {
-      const count = tileCounts.get(terminalType) || 0;
-      if (count > 0) {
-        terminalKindCount++;
-        if (count >= 2 && !hasPair) {
-          hasPair = true;
-        }
-      }
+  /**
+   * 設定を更新
+   */
+  public updateConfig(newConfig: Partial<ShantenConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+    if (!this.config.cacheResults) {
+      this.clearCache();
     }
-
-    // 非終端牌がある場合は国士無双不可能
-    for (const [tileKey, count] of tileCounts) {
-      if (count > 0 && !terminalTypes.includes(tileKey)) {
-        return 13; // 最大シャンテン数
-      }
-    }
-
-    const shanten = 13 - terminalKindCount - (hasPair ? 1 : 0);
-    return Math.max(0, shanten);
-  }
-
-  private countTiles(tiles: Tile[]): Map<string, number> {
-    const counts = new Map<string, number>();
-    
-    for (const tile of tiles) {
-      const key = `${tile.suit}-${tile.value}`;
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    
-    return counts;
-  }
-
-  private calculateUsefulTiles(tiles: Tile[], handType: HandType): Tile[] {
-    // 簡略化された有効牌計算
-    // 実際の実装では各牌を追加してシャンテン数が減るかチェック
-    const usefulTiles: Tile[] = [];
-    
-    if (handType === 'kokushi') {
-      // 国士無双の有効牌は幺九牌
-      const terminalTiles = [
-        new Tile('man', 1), new Tile('man', 9),
-        new Tile('pin', 1), new Tile('pin', 9),
-        new Tile('sou', 1), new Tile('sou', 9),
-        new Tile('wind', 1), new Tile('wind', 2),
-        new Tile('wind', 3), new Tile('wind', 4),
-        new Tile('dragon', 1), new Tile('dragon', 2),
-        new Tile('dragon', 3)
-      ];
-      
-      const tileCounts = this.countTiles(tiles);
-      for (const tile of terminalTiles) {
-        const key = `${tile.suit}-${tile.value}`;
-        if ((tileCounts.get(key) || 0) === 0) {
-          usefulTiles.push(tile);
-        }
-      }
-    } else {
-      // 通常手・七対子の有効牌計算は複雑なため省略
-      // 実装では全ての牌を試してシャンテン数が減るものを抽出
-    }
-    
-    return usefulTiles;
-  }
-
-  public isComplete(tiles: Tile[]): boolean {
-    return this.calculateMinimumShanten(tiles).minimumShanten === -1;
-  }
-
-  public isTenpai(tiles: Tile[]): boolean {
-    return this.calculateMinimumShanten(tiles).minimumShanten === 0;
-  }
-
-  public createShantenResult(
-    regular: number, 
-    chitoitsu: number, 
-    kokushi: number, 
-    usefulTiles: Tile[] = []
-  ): ShantenResult {
-    const minimumShanten = Math.min(regular, chitoitsu, kokushi);
-    
-    let bestHandType: HandType;
-    if (minimumShanten === regular) {
-      bestHandType = 'regular';
-    } else if (minimumShanten === chitoitsu) {
-      bestHandType = 'chitoitsu';
-    } else {
-      bestHandType = 'kokushi';
-    }
-
-    return {
-      regularShanten: regular,
-      chitoitsuShanten: chitoitsu,
-      kokushiShanten: kokushi,
-      minimumShanten,
-      bestHandType,
-      usefulTiles
-    };
   }
 }

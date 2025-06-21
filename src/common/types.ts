@@ -17,6 +17,21 @@ export const MentsuType = {
 } as const;
 export type MentsuType = typeof MentsuType[keyof typeof MentsuType];
 
+export const OpenMeldType = {
+  CHI: 'chi',       // チー (順子)
+  PON: 'pon',       // ポン (刻子)
+  MINKAN: 'minkan', // 明槓
+  KAKAN: 'kakan'    // 加槓
+} as const;
+export type OpenMeldType = typeof OpenMeldType[keyof typeof OpenMeldType];
+
+export const MeldFrom = {
+  KAMICHA: 'kamicha',   // 上家 (左隣)
+  TOIMEN: 'toimen',     // 対面
+  SHIMOCHA: 'shimocha'  // 下家 (右隣)
+} as const;
+export type MeldFrom = typeof MeldFrom[keyof typeof MeldFrom];
+
 export const WaitType = {
   RYANMEN: 'ryanmen',    // 両面待ち
   KANCHAN: 'kanchan',    // 嵌張待ち
@@ -32,6 +47,22 @@ export const HandType = {
   KOKUSHI: 'kokushi'        // 国士無双
 } as const;
 export type HandType = typeof HandType[keyof typeof HandType];
+
+// シャンテン計算設定
+export interface ShantenConfig {
+  enableRegular?: boolean;      // 通常手計算を有効にするか（デフォルト: true）
+  enableChitoitsu?: boolean;    // 七対子計算を有効にするか（デフォルト: true）
+  enableKokushi?: boolean;      // 国士無双計算を有効にするか（デフォルト: true）
+  cacheResults?: boolean;       // 結果をキャッシュするか（デフォルト: false）
+}
+
+// シャンテン計算オプション
+export interface ShantenOptions {
+  includeUsefulTiles?: boolean;        // 有効牌を計算に含めるか（デフォルト: false）
+  includeMentsuCombinations?: boolean; // 面子組み合わせを含めるか（デフォルト: false）
+  includeWaitType?: boolean;           // 待ちの形を含めるか（デフォルト: false）
+  handTypes?: HandType[];              // 計算対象の手牌タイプ（未指定時は全て）
+}
 
 export const Wind = {
   EAST: 1,
@@ -86,11 +117,38 @@ export interface BonusPoints {
   honbaSticks: number;   // 本場
 }
 
+// 副露面子インターフェース
+export interface OpenMeld {
+  tiles: string[];              // 面子を構成する牌
+  type: OpenMeldType;           // 副露の種類
+  from: MeldFrom;               // 鳴いた相手
+  calledTile: string;           // 鳴いた牌
+  isConcealed: false;           // 副露は必ず明面子
+}
+
 // 手牌オプション
 export interface HandOptions {
-  openMelds?: string[];
-  winningTile: string;
+  openMelds?: OpenMeld[];
+  drawnTile: string;        // ツモ牌（和了時は和了牌、非和了時も意味を持つ）
   isTsumo: boolean;
   isRiichi?: boolean;
   gameContext: GameContext;
+}
+
+// 手牌状態の種類
+export const HandState = {
+  WINNING: 'winning',        // 上がり (-1シャンテン)
+  TENPAI: 'tenpai',         // テンパイ (0シャンテン)
+  INCOMPLETE: 'incomplete'   // 未完成 (1シャンテン以上)
+} as const;
+export type HandState = typeof HandState[keyof typeof HandState];
+
+// 手牌分析結果
+export interface HandAnalysisResult {
+  readonly handState: HandState;
+  readonly shanten: number;
+  readonly bestHandType: HandType;
+  readonly usefulTiles: string[];        // 有効牌の文字列表現
+  readonly usefulTileCount: number;      // 有効牌の枚数（残り枚数考慮）
+  readonly message: string;              // 状況説明メッセージ
 }

@@ -6,6 +6,7 @@ export class Tile {
   public readonly suit: TileSuit;
   public readonly value: number;
   public readonly isRed: boolean;
+  public readonly index: number; // シャンテン計算用インデックス（0-33）
 
   constructor(suit: TileSuit, value: number, isRed: boolean = false) {
     this.suit = suit;
@@ -14,6 +15,9 @@ export class Tile {
     
     // バリデーション
     this.validateTile();
+    
+    // インデックス計算
+    this.index = this.calculateIndex();
   }
 
   private validateTile(): void {
@@ -33,6 +37,51 @@ export class Tile {
       if (this.value < 1 || this.value > 3) {
         throw new Error(`Invalid dragon tile value: ${this.value}`);
       }
+    }
+  }
+
+  /**
+   * シャンテン計算用インデックスを計算
+   * 0-8: 萬子 (1m-9m)
+   * 9-17: 筒子 (1p-9p)  
+   * 18-26: 索子 (1s-9s)
+   * 27-30: 風牌 (1z-4z)
+   * 31-33: 三元牌 (5z-7z)
+   */
+  private calculateIndex(): number {
+    if (this.suit === 'man') {
+      return this.value - 1; // 0-8
+    } else if (this.suit === 'pin') {
+      return 9 + this.value - 1; // 9-17
+    } else if (this.suit === 'sou') {
+      return 18 + this.value - 1; // 18-26
+    } else if (this.suit === 'wind') {
+      return 27 + this.value - 1; // 27-30
+    } else if (this.suit === 'dragon') {
+      return 31 + this.value - 1; // 31-33
+    } else {
+      throw new Error(`Invalid tile suit: ${this.suit}`);
+    }
+  }
+
+  /**
+   * インデックスから牌を作成（ユーティリティメソッド）
+   */
+  public static fromIndex(index: number): Tile {
+    if (index < 0 || index > 33) {
+      throw new Error(`Invalid tile index: ${index}`);
+    }
+    
+    if (index <= 8) {
+      return new Tile('man', index + 1);
+    } else if (index <= 17) {
+      return new Tile('pin', index - 9 + 1);
+    } else if (index <= 26) {
+      return new Tile('sou', index - 18 + 1);
+    } else if (index <= 30) {
+      return new Tile('wind', index - 27 + 1);
+    } else {
+      return new Tile('dragon', index - 31 + 1);
     }
   }
 

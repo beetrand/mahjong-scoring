@@ -1,6 +1,7 @@
 // 基本機能のテスト
 
 import { Tile } from '../common/tile';
+import { Hand } from '../common/hand';
 import { Mentsu } from '../common/mentsu';
 import { MahjongScorer, createGameContext } from '../index';
 
@@ -178,15 +179,22 @@ describe('MahjongScorer 基本機能', () => {
   });
 
   test('シャンテン数計算', () => {
-    const tiles = Tile.parseHandString('123m456p789s1122z1m');
-    const result = scorer.calculateShanten(tiles.slice(0, 13));
-    expect(result.minimumShanten).toBeGreaterThanOrEqual(0);
+    const hand = Hand.fromString('123m456p789s1122z', {
+      drawnTile: '2z',
+      isTsumo: true,
+      gameContext
+    });
+    const result = scorer.calculateHandShanten(hand);
+    expect(result.shanten).toBeGreaterThanOrEqual(0);
   });
 
   test('和了形の判定', () => {
-    const winningTiles = Tile.parseHandString('123m456p789s1122z1m');
-    expect(winningTiles.length).toBe(14);
-    const isWinning = scorer.isWinningHand(winningTiles);
+    const hand = Hand.fromString('123m456p789s1122z1m', {
+      drawnTile: '1m',
+      isTsumo: true,
+      gameContext
+    });
+    const isWinning = scorer.isWinningHand(hand);
     expect(isWinning).toBe(true);
   });
 
