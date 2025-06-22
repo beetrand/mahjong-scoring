@@ -232,22 +232,22 @@ export class UsefulTilesCalculator {
     
     const handTileCount = hand.getTileCount();
     
-    const pairs = handTileCount.countPairs();
+    const toitsu = handTileCount.countToitsu();
     const kinds = handTileCount.countTilesWithAtLeast(1);
     
     let tooMany = 0;
     for (let i = 0; i < 34; i++) {
-      const count = handTileCount.getCountByIndex(i);
+      const count = handTileCount.getCount(i);
       if (count >= 3) {
         tooMany += count - 2;
       }
     }
 
     if (kinds < 7) {
-      return 6 - pairs + (7 - kinds);
+      return 6 - toitsu + (7 - kinds);
     }
 
-    return 6 - pairs + tooMany;
+    return 6 - toitsu + tooMany;
   }
 
   /**
@@ -269,22 +269,22 @@ export class UsefulTilesCalculator {
     ];
 
     let kinds = 0;
-    let pairs = 0;
+    let toitsu = 0;
 
     for (const index of terminalIndices) {
-      const count = handTileCount.getCountByIndex(index);
+      const count = handTileCount.getCount(index);
       if (count >= 1) {
         kinds++;
         if (count >= 2) {
-          pairs++;
+          toitsu++;
         }
       }
     }
 
     if (kinds >= 13) {
-      return pairs >= 1 ? -1 : 0;
+      return toitsu >= 1 ? -1 : 0;
     }
 
-    return 13 - kinds - (pairs > 0 ? 1 : 0);
+    return 13 - kinds - (toitsu > 0 ? 1 : 0);
   }
 }

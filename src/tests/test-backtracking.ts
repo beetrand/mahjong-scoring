@@ -28,6 +28,12 @@ function testBacktracking() {
 
   const testCases = [
     {
+      name: '新しい問題のケース（2345666m123p4566s）',
+      tiles: '2345666m123p4566s',
+      expectedShanten: 0,
+      description: '234m(順子) + 56m(搭子) + 66m(雀頭) + 123p(順子) + 456s(順子) = テンパイ'
+    },
+    {
       name: '問題のケース（11234567888999m）',
       tiles: '11234567888999m',
       expectedShanten: -1,
@@ -56,6 +62,18 @@ function testBacktracking() {
       tiles: '123345567m11122z',
       expectedShanten: -1,
       description: '順子(123) + 順子(345) + 順子(567) + 刻子(111z) + 雀頭(22z)'
+    },
+    {
+      name: '字牌テストケース（111222333z）',
+      tiles: '111222333z111p22p',
+      expectedShanten: -1,
+      description: '刻子(111z) + 刻子(222z) + 刻子(333z) + 刻子(111p) + 雀頭(22p)'
+    },
+    {
+      name: '字牌混在ケース（123m111z234s）',
+      tiles: '123m111z234s111p1p',
+      expectedShanten: 1,
+      description: '順子(123m) + 刻子(111z) + 順子(234s) + 刻子(111p) + 単騎(1p) = 1シャンテン'
     }
   ];
 
@@ -68,8 +86,8 @@ function testBacktracking() {
     
     const hand = createTestHand(testCase.tiles);
     
-    // 通常手のシャンテン数を計算
-    const shantenResult = calculator.calculateShanten(hand);
+    // 通常手のシャンテン数を計算（有効牌計算なし）
+    const shantenResult = calculator.calculateShanten(hand, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
     const shanten = shantenResult.shanten;
     const regularShanten = calculator.calculateRegularShanten(hand).shanten;
     

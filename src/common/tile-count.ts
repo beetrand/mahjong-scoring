@@ -22,20 +22,20 @@ export class TileCount {
   }
 
   /**
-   * 指定した牌の枚数を取得
-   */
-  getCount(tile: Tile): number {
-    return this.counts[this.getTileIndex(tile)];
-  }
-
-  /**
    * 指定したインデックスの枚数を取得
    */
-  getCountByIndex(index: number): number {
+  getCount(index: number): number {
     if (index < 0 || index >= 34) {
       throw new Error(`Invalid tile index: ${index}`);
     }
     return this.counts[index];
+  }
+
+  /**
+   * 指定した牌オブジェクトの枚数を取得
+   */
+  getCountByTile(tile: Tile): number {
+    return this.counts[this.getTileIndex(tile)];
   }
 
   /**
@@ -103,6 +103,30 @@ export class TileCount {
       } 
     }
     return result;
+  }
+
+  /**
+   * 指定インデックスの枚数を増やす
+   */
+  increment(index: number, delta: number = 1): void {
+    if (index < 0 || index >= 34) {
+      throw new Error(`Invalid tile index: ${index}`);
+    }
+    const newCount = this.counts[index] + delta;
+    this.validateCount(newCount);
+    this.counts[index] = newCount;
+  }
+
+  /**
+   * 指定インデックスの枚数を減らす
+   */
+  decrement(index: number, delta: number = 1): void {
+    if (index < 0 || index >= 34) {
+      throw new Error(`Invalid tile index: ${index}`);
+    }
+    const newCount = this.counts[index] - delta;
+    this.validateCount(newCount);
+    this.counts[index] = newCount;
   }
 
   /**
@@ -176,7 +200,7 @@ export class TileCount {
   /**
    * 対子の数をカウント
    */
-  countPairs(): number {
+  countToitsu(): number {
     return this.counts.filter(count => count >= 2).length;
   }
 
