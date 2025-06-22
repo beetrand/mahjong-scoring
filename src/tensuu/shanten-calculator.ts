@@ -191,28 +191,26 @@ export class ShantenCalculator {
     const combinations = this.generateCombinations(suitResults, honorRemaining);
     
     for (const combination of combinations) {
-      // この組み合わせで雀頭を選択し、シャンテン数を計算
-      const jatouResults = this.selectJatouAndCountTaatsu(combination);
+      // 残り牌から対子・搭子をカウント
+      const { pairs, taatsu } = this.countRemainingTiles(combination.clone());
       
-      for (const jatouResult of jatouResults) {
-        // シャンテン数 = 8 - 2×面子数 - 搭子数 - 対子数
-        let shanten = 8 - (totalMelds * 2) - jatouResult.taatsu - jatouResult.pairs;
-        
-        // 雀頭の調整
-        if (jatouResult.jatouIndex === -1) {
-          shanten += 1;  // 雀頭なし
-        }
-        
-        shanten = Math.max(shanten, -1);
-        
-        // 最適解の更新
-        if (shanten < minShanten) {
-          minShanten = shanten;
-          optimalCandidates.length = 0;
-          optimalCandidates.push(combination.clone());
-        } else if (shanten === minShanten) {
-          optimalCandidates.push(combination.clone());
-        }
+      // シャンテン数 = 8 - 2×面子数 - 搭子数 - 対子数 + 雀頭なしペナルティ
+      let shanten = 8 - (totalMelds * 2) - taatsu - pairs;
+      
+      // 雀頭の調整（対子が1つ以上あれば雀頭ありとみなす）
+      if (pairs === 0) {
+        shanten += 1;  // 雀頭なし
+      }
+      
+      shanten = Math.max(shanten, -1);
+      
+      // 最適解の更新
+      if (shanten < minShanten) {
+        minShanten = shanten;
+        optimalCandidates.length = 0;
+        optimalCandidates.push(combination.clone());
+      } else if (shanten === minShanten) {
+        optimalCandidates.push(combination.clone());
       }
     }
     
@@ -334,97 +332,28 @@ export class ShantenCalculator {
   ): TileCount[] {
     const combinations: TileCount[] = [];
     
-    // 簡易実装: 各スートの全ての候補を組み合わせる（最大10パターンまで）
-    const maxCombinations = 10;
-    let count = 0;
-    
     // 各スートの候補数を取得（空の場合はデフォルトパターンを設定）
     const candidates = suitResults.map((r) => {
       if (r.remainingTiles.length > 0) {
         return r.remainingTiles;
       } else {
         // デフォルトパターン：そのスートに牌がない状態
-        const emptyArray = new Array(34).fill(0);
-        return [new TileCount(emptyArray)];
+        return [new TileCount()];
       }
     });
     
-    // 全ての組み合わせを生成（安全な3重ループ）
+    // 全ての組み合わせを生成
     for (const manPattern of candidates[0]) {
       for (const pinPattern of candidates[1]) {
         for (const souPattern of candidates[2]) {
-          if (count >= maxCombinations) break;
-          
-          // 組み合わせを作成
-          const combined = new TileCount();
-          
-          // 萬子を設定 (0-8)
-          const manCounts = manPattern.getManCounts();
-          for (let i = 0; i < 9; i++) {
-            combined.setCountByIndex(i, manCounts[i]);
-          }
-          
-          // 筒子を設定 (9-17)
-          const pinCounts = pinPattern.getPinCounts();
-          for (let i = 0; i < 9; i++) {
-            combined.setCountByIndex(9 + i, pinCounts[i]);
-          }
-          
-          // 索子を設定 (18-26)
-          const souCounts = souPattern.getSouCounts();
-          for (let i = 0; i < 9; i++) {
-            combined.setCountByIndex(18 + i, souCounts[i]);
-          }
-          
-          // 字牌を設定 (27-33)
-          const honorCounts = honorRemaining.getHonorCounts();
-          for (let i = 0; i < 7; i++) {
-            combined.setCountByIndex(27 + i, honorCounts[i]);
-          }
-          
+          const combined = manPattern.add(pinPattern).add(souPattern).add(honorRemaining);
           combinations.push(combined);
-          count++;
         }
-        if (count >= maxCombinations) break;
       }
-      if (count >= maxCombinations) break;
     }
-    
     return combinations;
   }
 
-  /**
-   * 残り牌から雀頭を選択し、対子・搭子をカウント
-   */
-  private selectJatouAndCountTaatsu(remainingCounts: TileCount): { jatouIndex: number, pairs: number, taatsu: number }[] {
-    const results: { jatouIndex: number, pairs: number, taatsu: number }[] = [];
-    
-    // 各牌を雀頭候補として試す
-    for (let i = 0; i < 34; i++) {
-      if (remainingCounts.getCountByIndex(i) >= 2) {
-        // この牌を雀頭として選択
-        const workCounts = remainingCounts.clone();
-        // 残りから対子・搭子をカウント
-        const { pairs, taatsu } = this.countRemainingTiles(workCounts);
-        
-        results.push({
-          jatouIndex: i,
-          pairs,
-          taatsu
-        });
-      }
-    }
-    
-    // 雀頭なしの場合も考慮
-    const { pairs, taatsu } = this.countRemainingTiles(remainingCounts.clone());
-    results.push({
-      jatouIndex: -1,  // -1は雀頭なし
-      pairs,
-      taatsu
-    });
-    
-    return results;
-  }
 
   /**
    * 残った牌から対子と搭子をカウント

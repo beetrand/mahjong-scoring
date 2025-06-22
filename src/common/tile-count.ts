@@ -92,6 +92,20 @@ export class TileCount {
   }
 
   /**
+   * 他のTileCountを加算して新しいTileCountを返す
+   */
+  add(other: TileCount): TileCount {
+    const result = new TileCount();
+    for (let i = 0; i < 34; i++) {
+      result.counts[i] = this.counts[i] + other.counts[i];
+      if(result.counts[i] > 4){
+        throw Error("tile count must be less than 5.")
+      } 
+    }
+    return result;
+  }
+
+  /**
    * 萬子の枚数配列を取得 (0-8)
    */
   getManCounts(): number[] {

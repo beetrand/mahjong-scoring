@@ -82,15 +82,20 @@ function main() {
 
   // 例4: シャンテン数計算
   console.log('【例4-2】シャンテン数計算');
-  const shantenTiles2 = '11234567888999m'; // 13枚の手牌
-  const shantenResult2 = scorer.calculateShantenFromString(shantenTiles2, '9m', gameContext);
-  
-  console.log(`手牌: ${shantenTiles2}`);
-  console.log(`通常手シャンテン: ${shantenResult2.regularShanten}`);
-  console.log(`七対子シャンテン: ${shantenResult2.chitoitsuShanten}`);
-  console.log(`国士シャンテン: ${shantenResult2.kokushiShanten}`);
-  console.log(`最小シャンテン: ${shantenResult2.shanten}`);
-  console.log(`最適な手の形: ${shantenResult2.handType}\n`);
+  const testhands: {hai: string, tsumo: string}[]= 
+  [
+    {hai:"11234567888999m",tsumo:"9m"},
+    {hai:"2345666m123p4566s",tsumo:"6s"},
+  ];
+  for(let testhand of testhands){
+    const shantenResult2 = scorer.calculateShantenFromString(testhand.hai, testhand.tsumo, gameContext);
+      console.log(`手牌: ${testhand.hai}`);
+      console.log(`通常手シャンテン: ${shantenResult2.regularShanten}`);
+      console.log(`七対子シャンテン: ${shantenResult2.chitoitsuShanten}`);
+      console.log(`国士シャンテン: ${shantenResult2.kokushiShanten}`);
+      console.log(`最小シャンテン: ${shantenResult2.shanten}`);
+      console.log(`最適な手の形: ${shantenResult2.handType}\n`);
+  }
 
   // 例5: 手牌状態分析
   console.log('【例5】手牌状態分析');
