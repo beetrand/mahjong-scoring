@@ -3,7 +3,6 @@
 export { Tile } from './common/tile';
 export { Mentsu } from './common/mentsu';
 export { ShantenCalculator } from './tensuu/shanten-calculator';
-export { BaseShantenCalculator } from './tensuu/base-shanten-calculator';
 export { UsefulTilesCalculator } from './tensuu/useful-tiles-calculator';
 export { MentsuCombinationFinder } from './tensuu/mentsu-combination-finder';
 export { 
@@ -44,7 +43,7 @@ export {
 
 // 型のエクスポート
 export type { MentsuCombination } from './tensuu/shanten-calculator';
-export type { BasicShantenResult, DetailedShantenResult } from './tensuu/shanten-calculator';
+export type { ShantenResult } from './tensuu/shanten-calculator';
 export type { YakuResult } from './tensuu/yaku';
 export type { 
   FuResult,

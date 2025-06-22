@@ -2,6 +2,7 @@
 
 import { Tile } from './tile';
 import { MeldParser } from './meld-parser';
+import { TileCount } from './tile-count';
 import type { HandOptions, OpenMeld, GameContext } from './types';
 
 export class Hand {
@@ -12,8 +13,8 @@ export class Hand {
   public readonly isRiichi: boolean;
   public readonly gameContext: GameContext;
   
-  // シャンテン計算用牌種別カウント配列（0-33のインデックス）
-  public readonly tileCountArray: number[];
+  // シャンテン計算用牌種別カウント（TileCountオブジェクト）
+  public readonly tileCount: TileCount;
 
   constructor(tiles: Tile[], options: HandOptions) {
     this.tiles = tiles;
@@ -29,8 +30,8 @@ export class Hand {
       throw new Error(`Invalid hand size: expected ${expectedTileCount} or ${expectedTileCount - 1} tiles, got ${this.tiles.length}`);
     }
     
-    // 牌種別カウント配列を事前計算
-    this.tileCountArray = this.createTileCountArray();
+    // 牌種別カウントを事前計算
+    this.tileCount = this.createTileCount();
     
     // ツモ牌が手牌に含まれているか検証
     const hasDrawnTile = this.tiles.some(tile => tile.equalsIgnoreRed(this.drawnTile));
@@ -66,7 +67,7 @@ export class Hand {
     return [...this.tiles];
   }
 
-  public getTileCount(): number {
+  public getConcealedTileCount(): number {
     return this.tiles.length;
   }
 
@@ -92,10 +93,10 @@ export class Hand {
    */
 
   /**
-   * シャンテン計算用の有効牌を取得
+   * 手牌（門前牌）を取得
    * 門前牌のみを返し、副露の影響は内部で隠蔽
    */
-  public getEffectiveTilesForShanten(): Tile[] {
+  public getTehai(): Tile[] {
     return this.getConcealedTiles();
   }
 
@@ -126,7 +127,7 @@ export class Hand {
    * 手牌がシャンテン計算可能な状態かチェック
    */
   public isValidForShantenCalculation(): boolean {
-    const effectiveTiles = this.getEffectiveTilesForShanten();
+    const effectiveTiles = this.getTehai();
     const expectedCount = this.calculateExpectedTileCount();
     
     // 期待される牌数（13枚または14枚相当）かチェック
@@ -142,25 +143,33 @@ export class Hand {
   }
 
   /**
-   * シャンテン計算用の牌種別カウント配列を作成
-   * インデックス0-33で各牌種の枚数をカウント
+   * シャンテン計算用の牌種別カウントを作成
+   * TileCountオブジェクトとして管理
    */
-  private createTileCountArray(): number[] {
-    const counts = new Array(34).fill(0);
+  private createTileCount(): TileCount {
+    const tileCount = new TileCount();
     
     // 門前牌のみをカウント（副露は除外）
     for (const tile of this.tiles) {
-      counts[tile.index]++;
+      tileCount.addTile(tile);
     }
     
-    return counts;
+    return tileCount;
   }
 
   /**
-   * シャンテン計算用の牌種別カウント配列を取得
+   * シャンテン計算用の牌種別カウントを取得
+   */
+  public getTileCount(): TileCount {
+    return this.tileCount.clone(); // コピーを返して不変性を保持
+  }
+
+  /**
+   * 後方互換性用：配列形式でのカウント取得
+   * @deprecated getTileCount()を使用してください
    */
   public getTileCountArray(): number[] {
-    return [...this.tileCountArray]; // コピーを返して不変性を保持
+    return this.tileCount.toArray();
   }
 
   public static create(tiles: Tile[], options: HandOptions): Hand {

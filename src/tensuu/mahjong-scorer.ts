@@ -7,7 +7,7 @@ import { FuCalculator, ScoreCalculator, PaymentCalculator, ScoringResult } from 
 import { ShantenCalculator } from './shanten-calculator';
 import type { MentsuCombination } from './shanten-calculator';
 import type { YakuResult } from './yaku';
-import type { DetailedShantenResult } from './shanten-calculator';
+import type { ShantenResult } from './shanten-calculator';
 import type { GameContext, YakuContext, FuContext, BonusPoints, OpenMeld, HandAnalysisResult, HandState } from '../common/types';
 
 export class MahjongScorer {
@@ -27,7 +27,7 @@ export class MahjongScorer {
 
   public scoreHand(hand: Hand, bonuses: BonusPoints = { riichiSticks: 0, honbaSticks: 0 }): ScoringResult {
     // 1. 詳細シャンテン計算で手牌解析（Handオブジェクトから副露情報を自動取得）
-    const shantenResult = this.shantenCalculator.calculateShantenDetailed(hand, {
+    const shantenResult = this.shantenCalculator.calculateShanten(hand, {
       includeMentsuCombinations: true
     });
     
@@ -122,15 +122,15 @@ export class MahjongScorer {
   /**
    * 手牌オブジェクトのシャンテン数を計算（副露対応）
    */
-  public calculateHandShanten(hand: Hand): DetailedShantenResult {
-    return this.shantenCalculator.calculateHandShanten(hand);
+  public calculateShanten(hand: Hand): ShantenResult {
+    return this.shantenCalculator.calculateShanten(hand);
   }
 
   /**
    * 手牌オブジェクトが和了形かチェック（副露対応）
    */
   public isWinningHand(hand: Hand): boolean {
-    const shantenResult = this.shantenCalculator.calculateHandShanten(hand);
+    const shantenResult = this.shantenCalculator.calculateShanten(hand);
     return shantenResult.shanten === -1;
   }
 
@@ -139,7 +139,7 @@ export class MahjongScorer {
    * 副露を適切に考慮したシャンテン計算
    */
   public analyzeHandState(hand: Hand): HandAnalysisResult {
-    const shantenResult = this.shantenCalculator.calculateHandShanten(hand);
+    const shantenResult = this.shantenCalculator.calculateShanten(hand);
     const shanten = shantenResult.shanten;
     
     // 手牌状態の判定（統一されたロジック）
@@ -369,13 +369,13 @@ export class MahjongScorer {
     return this.scoreHand(hand, options.bonuses || { riichiSticks: 0, honbaSticks: 0 });
   }
 
-  public calculateShantenFromString(tilesStr: string, drawnTile: string, gameContext: GameContext): DetailedShantenResult {
+  public calculateShantenFromString(tilesStr: string, drawnTile: string, gameContext: GameContext): ShantenResult {
     const hand = Hand.fromString(tilesStr, {
       drawnTile,
       isTsumo: true,
       gameContext
     });
-    return this.calculateHandShanten(hand);
+    return this.calculateShanten(hand);
   }
 
 }

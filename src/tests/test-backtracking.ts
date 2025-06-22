@@ -2,7 +2,6 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
-import { BaseShantenCalculator } from '../tensuu/base-shanten-calculator';
 import { ShantenCalculator } from '../tensuu/shanten-calculator';
 
 // テスト用のHandオブジェクトを作成
@@ -61,7 +60,6 @@ function testBacktracking() {
   ];
 
   const calculator = new ShantenCalculator();
-  const baseCalculator = new BaseShantenCalculator();
 
   testCases.forEach(testCase => {
     console.log(`\nテスト: ${testCase.name}`);
@@ -71,13 +69,27 @@ function testBacktracking() {
     const hand = createTestHand(testCase.tiles);
     
     // 通常手のシャンテン数を計算
-    const shanten = calculator.calculateShanten(hand);
-    const regularShanten = baseCalculator.calculateRegularShantenFromHand(hand);
+    const shantenResult = calculator.calculateShanten(hand);
+    const shanten = shantenResult.shanten;
+    const regularShanten = calculator.calculateRegularShanten(hand).shanten;
     
     console.log(`計算結果: ${shanten}シャンテン`);
     console.log(`通常手シャンテン: ${regularShanten}`);
     console.log(`期待値: ${testCase.expectedShanten}シャンテン`);
     console.log(`結果: ${shanten === testCase.expectedShanten ? '✓ 成功' : '✗ 失敗'}`);
+    
+    // 詳細版のテスト
+    const detailedResult = calculator.calculateRegularShanten(hand);
+    console.log(`詳細版シャンテン: ${detailedResult.shanten}`);
+    console.log(`候補数: ${detailedResult.candidates.length}`);
+    
+    if (detailedResult.candidates.length > 0 && testCase.name === '問題のケース（11234567888999m）') {
+      console.log('最適パターン（萬子部分）:');
+      const candidate = detailedResult.candidates[0];
+      const manCounts = candidate.getManCounts();
+      console.log(`  残り牌: [${manCounts.join(',')}]`);
+      console.log(`  解説: 11(雀頭として残る), 234567(面子として除去), 888999(面子として除去)`);
+    }
   });
 
   // パフォーマンステスト

@@ -2,7 +2,6 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
-import { BaseShantenCalculator } from '../tensuu/base-shanten-calculator';
 import { UsefulTilesCalculator } from '../tensuu/useful-tiles-calculator';
 import { MentsuCombinationFinder } from '../tensuu/mentsu-combination-finder';
 import { ShantenCalculator } from '../tensuu/shanten-calculator';
@@ -41,12 +40,12 @@ function testClassSeparation() {
   // テスト手牌: 3シャンテン
   const testTiles = createTestHand(['1m', '2m', '4m', '5m', '7m', '8m', '2p', '3p', '5p', '7p', '1s', '4s', '9s']);
   
-  console.log('1. BaseShantenCalculator テスト');
-  const baseCalculator = new BaseShantenCalculator();
+  console.log('1. ShantenCalculator（統合版）テスト');
+  const shantenCalculator = new ShantenCalculator();
   const testHandObject = createTestHandObject(['1m', '2m', '4m', '5m', '7m', '8m', '2p', '3p', '5p', '7p', '1s', '4s', '9s']);
-  const regularShanten = baseCalculator.calculateRegularShantenFromHand(testHandObject);
-  const chitoitsuShanten = baseCalculator.calculateChitoitsuShantenFromHand(testHandObject);
-  const kokushiShanten = baseCalculator.calculateKokushiShantenFromHand(testHandObject);
+  const regularShanten = shantenCalculator.calculateRegularShanten(testHandObject).shanten;
+  const chitoitsuShanten = shantenCalculator.calculateChitoitsuShanten(testHandObject);
+  const kokushiShanten = shantenCalculator.calculateKokushiShanten(testHandObject);
   
   console.log(`  通常手シャンテン: ${regularShanten}`);
   console.log(`  七対子シャンテン: ${chitoitsuShanten}`);
@@ -73,19 +72,18 @@ function testClassSeparation() {
   console.log(`  組み合わせ数: ${combinations.length}`);
   console.log(`  最適組み合わせ: ${bestCombination ? '見つかった' : '見つからない'}`);
   
-  console.log('\\n4. 統合ShantenCalculator テスト');
-  const shantenCalculator = new ShantenCalculator();
+  console.log('\\n4. 統合ShantenCalculator API テスト');
   
   // 軽量計算
-  const simpleShanten = shantenCalculator.calculateShanten(testHandObject);
+  const simpleShanten = shantenCalculator.calculateShantenNumber(testHandObject);
   console.log(`  軽量シャンテン: ${simpleShanten}`);
   
   // 基本計算
-  const basicResult = shantenCalculator.calculateBasicShanten(testHandObject);
+  const basicResult = shantenCalculator.calculateShanten(testHandObject, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
   console.log(`  基本結果 - シャンテン: ${basicResult.shanten}, タイプ: ${basicResult.handType}`);
   
   // 詳細計算
-  const detailedResult = shantenCalculator.calculateShantenDetailed(testHandObject, {
+  const detailedResult = shantenCalculator.calculateShanten(testHandObject, {
     includeUsefulTiles: true,
     includeMentsuCombinations: false
   });
@@ -93,13 +91,13 @@ function testClassSeparation() {
   
   console.log('\\n5. 性能比較テスト');
   
-  // 基本計算機の性能
+  // 統合前後の性能比較（統合版のみ）
   const baseStartTime = Date.now();
   for (let i = 0; i < 1000; i++) {
-    baseCalculator.calculateRegularShantenFromHand(testHandObject);
+    shantenCalculator.calculateRegularShanten(testHandObject).shanten;
   }
   const baseEndTime = Date.now();
-  console.log(`  BaseShantenCalculator 1000回: ${baseEndTime - baseStartTime}ms`);
+  console.log(`  統合版基本計算 1000回: ${baseEndTime - baseStartTime}ms`);
   
   // 統合計算機の性能
   const integratedStartTime = Date.now();
@@ -107,7 +105,7 @@ function testClassSeparation() {
     shantenCalculator.calculateShanten(testHandObject);
   }
   const integratedEndTime = Date.now();
-  console.log(`  ShantenCalculator 1000回: ${integratedEndTime - integratedStartTime}ms`);
+  console.log(`  統合版詳細計算 1000回: ${integratedEndTime - integratedStartTime}ms`);
   
   console.log('\\n=== クラス分離テスト完了 ===');
 }

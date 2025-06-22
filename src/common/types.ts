@@ -53,7 +53,6 @@ export interface ShantenConfig {
   enableRegular?: boolean;      // 通常手計算を有効にするか（デフォルト: true）
   enableChitoitsu?: boolean;    // 七対子計算を有効にするか（デフォルト: true）
   enableKokushi?: boolean;      // 国士無双計算を有効にするか（デフォルト: true）
-  cacheResults?: boolean;       // 結果をキャッシュするか（デフォルト: false）
 }
 
 // シャンテン計算オプション

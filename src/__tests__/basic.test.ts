@@ -184,7 +184,7 @@ describe('MahjongScorer 基本機能', () => {
       isTsumo: true,
       gameContext
     });
-    const result = scorer.calculateHandShanten(hand);
+    const result = scorer.calculateShanten(hand);
     expect(result.shanten).toBeGreaterThanOrEqual(0);
   });
 

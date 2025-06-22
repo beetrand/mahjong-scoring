@@ -25,9 +25,9 @@ try {
     gameContext
   });
   
-  const simpleShanten = shantenCalculator.calculateShanten(menzenHand);
-  const basicResult = shantenCalculator.calculateBasicShanten(menzenHand);
-  const detailedResult = shantenCalculator.calculateShantenDetailed(menzenHand);
+  const simpleShanten = shantenCalculator.calculateShantenNumber(menzenHand);
+  const basicResult = shantenCalculator.calculateShanten(menzenHand, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+  const detailedResult = shantenCalculator.calculateShanten(menzenHand);
   
   console.log(`  門前手シャンテン（軽量）: ${simpleShanten}`);
   console.log(`  門前手シャンテン（基本）: ${basicResult.shanten}, タイプ=${basicResult.handType}`);
@@ -49,9 +49,9 @@ try {
     gameContext
   });
   
-  const simpleShanten = shantenCalculator.calculateShanten(hand1);
-  const basicResult = shantenCalculator.calculateBasicShanten(hand1);
-  const detailedResult = shantenCalculator.calculateShantenDetailed(hand1);
+  const simpleShanten = shantenCalculator.calculateShantenNumber(hand1);
+  const basicResult = shantenCalculator.calculateShanten(hand1, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+  const detailedResult = shantenCalculator.calculateShanten(hand1);
   
   console.log(`  1副露シャンテン（軽量）: ${simpleShanten} (期待: -1=和了)`);
   console.log(`  1副露シャンテン（基本）: ${basicResult.shanten}, タイプ=${basicResult.handType}`);
@@ -79,15 +79,15 @@ try {
   });
   
   // 新APIではHandオブジェクトのみを受け取る
-  const shanten1 = shantenCalculator.calculateShanten(hand);
-  const basic1 = shantenCalculator.calculateBasicShanten(hand);
-  const detailed1 = shantenCalculator.calculateShantenDetailed(hand);
+  const shanten1 = shantenCalculator.calculateShantenNumber(hand);
+  const basic1 = shantenCalculator.calculateShanten(hand, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+  const detailed1 = shantenCalculator.calculateShanten(hand);
   const useful1 = shantenCalculator.calculateUsefulTiles(hand);
   
   console.log(`  全メソッドでHandオブジェクトを受け取り成功`);
   console.log(`  calculateShanten: ${shanten1}`);
-  console.log(`  calculateBasicShanten: ${basic1.shanten}`);
-  console.log(`  calculateShantenDetailed: ${detailed1.shanten}`);
+  console.log(`  calculateShanten(基本): ${basic1.shanten}`);
+  console.log(`  calculateShanten(detailed): ${detailed1.shanten}`);
   console.log(`  calculateUsefulTiles: ${useful1.length}個の有効牌`);
   console.log(`  ✅ 新しいHand基盤APIが正しく動作している`);
   
