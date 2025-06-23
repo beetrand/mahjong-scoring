@@ -164,13 +164,6 @@ export class Hand {
     return this.tileCount.clone(); // コピーを返して不変性を保持
   }
 
-  /**
-   * 後方互換性用：配列形式でのカウント取得
-   * @deprecated getTileCount()を使用してください
-   */
-  public getTileCountArray(): number[] {
-    return this.tileCount.toArray();
-  }
 
   public static create(tiles: Tile[], options: HandOptions): Hand {
     return new Hand(tiles, options);

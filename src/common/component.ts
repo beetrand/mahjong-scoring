@@ -288,6 +288,68 @@ export class Component {
     }
   }
 
+  /**
+   * 他のComponentと等価かどうかを比較
+   */
+  public equals(other: Component): boolean {
+    if (this.type !== other.type) return false;
+    if (this.isConcealed !== other.isConcealed) return false;
+    if (this.tiles.length !== other.tiles.length) return false;
+    
+    // タイルが全て同じかチェック（ソート済み前提）
+    for (let i = 0; i < this.tiles.length; i++) {
+      if (!this.tiles[i].equals(other.tiles[i])) return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Component配列の比較（順序無視）
+   */
+  public static areComponentArraysEqual(arr1: Component[], arr2: Component[]): boolean {
+    if (arr1.length !== arr2.length) return false;
+    
+    // 各Componentをソートしてから比較
+    const sorted1 = [...arr1].sort(Component.compare);
+    const sorted2 = [...arr2].sort(Component.compare);
+    
+    for (let i = 0; i < sorted1.length; i++) {
+      if (!sorted1[i].equals(sorted2[i])) return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Component配列の正規化（ソート）のための比較関数
+   */
+  public static compare(a: Component, b: Component): number {
+    // 1. タイプ順
+    const typeOrder = {
+      [ComponentType.SEQUENCE]: 0,
+      [ComponentType.TRIPLET]: 1,
+      [ComponentType.QUAD]: 2,
+      [ComponentType.PAIR]: 3,
+      [ComponentType.TAATSU]: 4,
+      [ComponentType.ISOLATED]: 5
+    };
+    
+    const typeDiff = typeOrder[a.type] - typeOrder[b.type];
+    if (typeDiff !== 0) return typeDiff;
+    
+    // 2. 最初のタイル順
+    const tileDiff = Tile.compare(a.tiles[0], b.tiles[0]);
+    if (tileDiff !== 0) return tileDiff;
+    
+    // 3. 暗/明順（暗が先）
+    if (a.isConcealed !== b.isConcealed) {
+      return a.isConcealed ? -1 : 1;
+    }
+    
+    return 0;
+  }
+
   public toString(): string {
     const typeStr = {
       [ComponentType.SEQUENCE]: '順子',

@@ -5,9 +5,9 @@ const gameContext = createGameContext(1, 1); // 東場、東家
 // 例4: シャンテン数計算
 console.log('シャンテン数計算');
 const testHands = [
-{ hai: "359m267p13558s456z", tsumo: "6z" },
+//{ hai: "359m267p13558s456z", tsumo: "6z" },
 { hai: "4556m33p2234457s1z", tsumo: "1z" },
-{ hai: "139m134689p246s3z6z", tsumo: "6z" },
+//{ hai: "139m134689p246s3z6z", tsumo: "6z" },
 ];
 
 testHands.forEach((testHand, index) => {

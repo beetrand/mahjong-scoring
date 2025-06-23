@@ -9,26 +9,16 @@ import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
 import { UsefulTilesCalculator } from './useful-tiles-calculator';
 import { Component, ComponentType } from '../common/component';
-import { UnifiedShantenCalculator } from './shanten-calculator-v2';
 
 /**
- * 面子の種類（レガシー互換性のため残存）
+ * バックトラッキング状態を管理する構造体
  */
-export const MentsuType = {
-  SHUNTSU: 'shuntsu',  // 順子
-  KOUTSU: 'koutsu',    // 刻子
-  TOITSU: 'toitsu'     // 対子（雀頭）
-} as const;
-
-export type MentsuType = typeof MentsuType[keyof typeof MentsuType];
-
-/**
- * 面子情報（レガシー互換性のため残存、新規はComponentを使用）
- * @deprecated Use Component instead
- */
-export interface MentsuInfo {
-  type: MentsuType;
-  tiles: number[];  // 牌のインデックス
+interface BacktrackState {
+  mentsuCount: number;    // 面子数（刻子・順子）
+  toitsuCount: number;    // 対子数
+  taatsuCount: number;    // 搭子数
+  hasJantou: boolean;     // 雀頭確定フラグ
+  components: Component[]; // 抽出したコンポーネント
 }
 
 /**
@@ -75,14 +65,17 @@ export interface ShantenResult {
  * 各計算機を統合
  */
 export class ShantenCalculator {
-  // 各計算機のインスタンス
+  // 計算機のインスタンス
   private usefulTilesCalculator: UsefulTilesCalculator;
-  private unifiedCalculator: UnifiedShantenCalculator;
+  
+  // バックトラッキング用のプロパティ
+  private minShanten: number = 8;
+  private optimalStates: BacktrackState[] = [];
+  private debugMode: boolean = false;
 
   constructor() {
-    // 各計算機を初期化
+    // 計算機を初期化
     this.usefulTilesCalculator = new UsefulTilesCalculator();
-    this.unifiedCalculator = new UnifiedShantenCalculator();
   }
 
   /**
@@ -166,7 +159,7 @@ export class ShantenCalculator {
   }
 
   /**
-   * 通常手のシャンテン数を計算（Hand基盤）
+   * 通常手のシャンテン数を計算（バックトラッキング版）
    * @param hand 手牌オブジェクト
    * @param includeDetails 詳細情報を含めるか
    * @param debugLog デバッグログを出力するか
@@ -176,8 +169,8 @@ export class ShantenCalculator {
     const handTileCount = hand.getTileCount();
     const meldCount = hand.getMeldCount();
     
-    // 新しい統一バックトラッキングアルゴリズムを使用
-    const shanten = this.unifiedCalculator.calculateRegularShanten(handTileCount, meldCount, debugLog);
+    // バックトラッキングアルゴリズムを使用
+    const shanten = this.calculateRegularShantenImpl(handTileCount, meldCount, debugLog);
     
     // 互換性のため、既存の形式で結果を返す
     const result: RegularShantenResult = {
@@ -186,75 +179,312 @@ export class ShantenCalculator {
       ...(includeDetails && { details: [] })
     };
     
-    // デバッグログは統一バックトラッキング内で出力済み
-    
     return result;
   }
 
   /**
-   * 通常手のシャンテン数を計算（レガシー版 - 比較用に残す）
+   * 通常手のシャンテン数を計算（バックトラッキング実装）
    */
-  // @ts-ignore
-  private calculateRegularShantenLegacy(hand: Hand, includeDetails: boolean = false, debugLog: boolean = false): RegularShantenResult {
-    const handTileCount = hand.getTileCount();
-    const meldCount = hand.getMeldCount();
+  private calculateRegularShantenImpl(tileCount: TileCount, meldCount: number = 0, debugMode: boolean = false): number {
+    this.minShanten = 8;
+    this.optimalStates = [];
+    this.debugMode = debugMode;
     
-    // 全牌一括バックトラッキングで最適解を探索
-    const result = {
-      minShanten: 8,
-      optimalCandidates: [] as TileCount[],
-      optimalDetails: [] as ShantenCalculationDetail[]
-    };
-    
-    this.tryExtractOptimalCombination(handTileCount.clone(), 0, meldCount, result, [], includeDetails);
-    
-    // デバッグログの出力
-    if(debugLog && result.optimalDetails && result.optimalDetails.length > 0) {
-      console.log(`\n=== シャンテン計算詳細 (${result.optimalDetails.length}パターン) ===`);
-      for(let i = 0; i < result.optimalDetails.length; i++){
-        const detail = result.optimalDetails[i];
-        console.log(`\n--- パターン ${i + 1} ---`);
-        console.log(`シャンテン数: ${detail.shanten}`);
-        
-        // 面子の表示
-        const completeMentsu = detail.mentsuList.filter(c => c.isCompleteMentsu());
-        const pairs = detail.mentsuList.filter(c => c.type === ComponentType.PAIR);
-        
-        if(completeMentsu.length > 0) {
-          console.log(`面子: ${completeMentsu.map(c => c.toString()).join(' ')}`);
-        }
-        
-        if(pairs.length > 0) {
-          console.log(`雀頭: ${pairs.map(c => c.toString()).join(' ')}`);
-        }
-        
-        // 残り牌をターツ・といつ・孤立牌に分類して表示
-        const remainingResult = this.countRemainingTiles(detail.remainingTiles.clone(), true);
-        if(remainingResult.analysis && remainingResult.analysis.components.length > 0) {
-          const remainingPairs = remainingResult.analysis.components.filter(c => c.type === ComponentType.PAIR);
-          const remainingTaatsu = remainingResult.analysis.components.filter(c => c.type === ComponentType.TAATSU);
-          const remainingIsolated = remainingResult.analysis.components.filter(c => c.type === ComponentType.ISOLATED);
-          
-          if(remainingPairs.length > 0) {
-            console.log(`残り対子: ${remainingPairs.map(c => c.toString()).join(' ')}`);
-          }
-          if(remainingTaatsu.length > 0) {
-            console.log(`残り搭子: ${remainingTaatsu.map(c => c.toString()).join(' ')}`);
-          }
-          if(remainingIsolated.length > 0) {
-            console.log(`残り孤立牌: ${remainingIsolated.map(c => c.toString()).join(' ')}`);
-          }
-        }
-      }
-      console.log('=== 詳細終了 ===\n');
+    if (this.debugMode) {
+      console.log(`\n=== バックトラッキング開始 ===`);
+      console.log(`手牌: ${this.tileCountToString(tileCount)}`);
+      console.log(`副露面子数: ${meldCount}`);
     }
     
+    const initialState: BacktrackState = {
+      mentsuCount: meldCount,
+      toitsuCount: 0,
+      taatsuCount: 0,
+      hasJantou: false,
+      components: []
+    };
+    
+    // バックトラッキング開始
+    this.backtrack(tileCount.clone(), 0, initialState);
+    
+    if (this.debugMode) {
+      this.outputDebugResults();
+    }
+    
+    return this.minShanten;
+  }
+
+  /**
+   * バックトラッキング
+   * 面子・対子・搭子を同時に最適化
+   */
+  private backtrack(tiles: TileCount, position: number, state: BacktrackState): void {
+    // 全ての位置を処理済み
+    if (position > MAX_TILE_INDEX) {
+      // 残り牌を孤立牌として追加（デバッグ時のみ）
+      if (this.debugMode) {
+        this.addRemainingTilesToState(tiles, state);
+      }
+      this.evaluateState(tiles, state);
+      if (this.debugMode) {
+        this.removeRemainingTilesFromState(tiles, state);
+      }
+      return;
+    }
+    
+    const count = tiles.getCount(position);
+    if (count === 0) {
+      // この位置に牌がない場合は次へ
+      this.backtrack(tiles, position + 1, state);
+      return;
+    }
+    
+    // 1. 刻子（3枚）を試す
+    if (count >= 3 && state.mentsuCount < 4) {
+      tiles.decrement(position, 3);
+      state.mentsuCount++;
+      state.components.push(Component.create(ComponentType.TRIPLET, [position, position, position]));
+      this.backtrack(tiles, position, state);
+      // バックトラッキング: 状態を復元
+      state.components.pop();
+      state.mentsuCount--;
+      tiles.increment(position, 3);
+    }
+    
+    // 2. 順子（連続3枚）を試す
+    if (position < 27 && this.canFormShuntsu(position) && state.mentsuCount < 4 &&
+      tiles.getCount(position) >= 1 && tiles.getCount(position + 1) >= 1 &&  tiles.getCount(position + 2) >= 1) {
+        
+        tiles.decrement(position); tiles.decrement(position + 1); tiles.decrement(position + 2);
+        state.mentsuCount++;
+        state.components.push(Component.create(ComponentType.SEQUENCE, [position, position + 1, position + 2]));
+        this.backtrack(tiles, position, state);
+        // バックトラッキング: 状態を復元
+        state.components.pop();
+        state.mentsuCount--;
+        tiles.increment(position); tiles.increment(position + 1); tiles.increment(position + 2);
+    }
+    
+    // 3. 対子（2枚）を試す
+    if (count >= 2) {
+      tiles.decrement(position, 2);
+      state.toitsuCount++;
+      state.components.push(Component.create(ComponentType.PAIR, [position, position]));
+      this.backtrack(tiles, position, state);
+      // バックトラッキング: 状態を復元
+      state.components.pop();
+      state.toitsuCount--;
+      tiles.increment(position, 2);
+    }
+    
+    // 4. 隣接搭子（連続2枚）を試す
+    if (position < 27 && this.canFormTaatsu(position) &&
+      tiles.getCount(position) >= 1 && tiles.getCount(position + 1) >= 1) {
+        tiles.decrement(position); tiles.decrement(position + 1);
+        state.taatsuCount++;
+        state.components.push(Component.create(ComponentType.TAATSU, [position, position + 1]));
+        this.backtrack(tiles, position, state);
+        // バックトラッキング: 状態を復元
+        state.components.pop();
+        state.taatsuCount--;
+        tiles.increment(position); tiles.increment(position + 1);
+    }
+    
+    // 5. 嵌張搭子（間隔2枚）を試す
+    if (position < 27 && this.canFormKanchan(position) &&
+      tiles.getCount(position) >= 1 && tiles.getCount(position + 2) >= 1) {
+        tiles.decrement(position); tiles.decrement(position + 2);
+        state.taatsuCount++;
+        state.components.push(Component.create(ComponentType.TAATSU, [position, position + 2]));
+        this.backtrack(tiles, position, state);
+        // バックトラッキング: 状態を復元
+        state.components.pop();
+        state.taatsuCount--;
+        tiles.increment(position); tiles.increment(position + 2);
+    }
+    
+    // 6. 何も取らずに次へ
+    this.backtrack(tiles, position + 1, state);
+  }
+
+  /**
+   * 現在の状態を評価してシャンテン数を計算
+   */
+  private evaluateState(_tiles: TileCount, state: BacktrackState): void {
+    const mentsu = state.mentsuCount;
+    const toitsu = state.toitsuCount;
+    const taatsu = state.taatsuCount;
+    
+    // 雀頭の判定（より厳密なロジック）
+    const jantouCount = toitsu > 0 && (taatsu + toitsu - 1) >= (4 - mentsu) ? 1 : 0;
+    
+    // usefulGroupsは純粋に面子候補のみ（4面子まで）
+    const usefulGroups = Math.min(taatsu + toitsu, 4 - mentsu);
+    
+    //シャンテン数計算
+    let shanten = 8 - (mentsu * 2) - usefulGroups - jantouCount;
+    
+    shanten = Math.max(shanten, -1);
+    
+    // 最適解の更新（デバッグモード時のみ状態保存）
+    if (shanten < this.minShanten) {
+      this.minShanten = shanten;
+      if (this.debugMode) {
+        this.optimalStates = [this.cloneState(state)];
+      } else {
+        this.optimalStates = [];
+      }
+    } else if (shanten === this.minShanten && this.debugMode) {
+      // 重複チェック: 同じComponent配列が既に存在するかチェック
+      const isDuplicate = this.optimalStates.some(existingState => 
+        Component.areComponentArraysEqual(existingState.components, state.components)
+      );
+      
+      if (!isDuplicate) {
+        this.optimalStates.push(this.cloneState(state));
+      }
+    }
+  }
+
+  /**
+   * 状態のクローン（デバッグ時のみ使用）
+   */
+  private cloneState(state: BacktrackState): BacktrackState {
     return {
-      shanten: result.minShanten,
-      candidates: result.optimalCandidates,
-      ...(includeDetails && { details: result.optimalDetails })
+      mentsuCount: state.mentsuCount,
+      toitsuCount: state.toitsuCount,
+      taatsuCount: state.taatsuCount,
+      hasJantou: state.hasJantou,
+      components: [...state.components]
     };
   }
+
+
+  /**
+   * 順子を形成可能かチェック（スート境界考慮）
+   */
+  private canFormShuntsu(position: number): boolean {
+    return (position <= 6) || 
+           (position >= 9 && position <= 15) || 
+           (position >= 18 && position <= 24);
+  }
+
+  /**
+   * 搭子を形成可能かチェック（隣接）
+   */
+  private canFormTaatsu(position: number): boolean {
+    return (position <= 7) || 
+           (position >= 9 && position <= 16) || 
+           (position >= 18 && position <= 25);
+  }
+
+  /**
+   * 嵌張搭子を形成可能かチェック
+   */
+  private canFormKanchan(position: number): boolean {
+    return (position <= 6) || 
+           (position >= 9 && position <= 15) || 
+           (position >= 18 && position <= 24);
+  }
+
+  /**
+   * 残り牌を孤立牌として状態に追加（デバッグ時のみ）
+   */
+  private addRemainingTilesToState(tiles: TileCount, state: BacktrackState): void {
+    // 残った牌を孤立牌として追加
+    for (let i = 0; i < 34; i++) {
+      const count = tiles.getCount(i);
+      for (let j = 0; j < count; j++) {
+        state.components.push(Component.create(ComponentType.ISOLATED, [i]));
+      }
+    }
+  }
+
+  /**
+   * 残り牌を孤立牌として状態から削除（デバッグ時のみ）
+   */
+  private removeRemainingTilesFromState(tiles: TileCount, state: BacktrackState): void {
+    // 残った牌の数だけpop
+    for (let i = 0; i < 34; i++) {
+      const count = tiles.getCount(i);
+      for (let j = 0; j < count; j++) {
+        state.components.pop();
+      }
+    }
+  }
+
+  /**
+   * TileCountを文字列表現に変換
+   */
+  private tileCountToString(tileCount: TileCount): string {
+    const tiles: string[] = [];
+    for (let i = 0; i < 34; i++) {
+      const count = tileCount.getCount(i);
+      for (let j = 0; j < count; j++) {
+        tiles.push(this.indexToTileString(i));
+      }
+    }
+    return tiles.join(' ');
+  }
+
+  /**
+   * インデックスから牌文字列に変換
+   */
+  private indexToTileString(index: number): string {
+    if (index < 9) return `${index + 1}m`;
+    if (index < 18) return `${index - 8}p`;
+    if (index < 27) return `${index - 17}s`;
+    const honor = index - 27 + 1;
+    return `${honor}z`;
+  }
+
+  /**
+   * デバッグ結果の出力
+   */
+  private outputDebugResults(): void {
+    console.log(`\n=== バックトラッキング結果 ===`);
+    console.log(`最小シャンテン数: ${this.minShanten}`);
+    console.log(`最適パターン数: ${this.optimalStates.length} (重複除去済み)`);
+    
+    if (this.optimalStates.length > 0) {
+      console.log(`\n=== 最適パターン詳細 ===`);
+      this.optimalStates.slice(0, 3).forEach((state, index) => {
+        console.log(`\n--- パターン ${index + 1} ---`);
+        console.log(`面子数: ${state.mentsuCount}, 対子数: ${state.toitsuCount}, 搭子数: ${state.taatsuCount}`);
+        
+        // 面子の表示
+        const mentsu = state.components.filter(c => c.isCompleteMentsu());
+        if (mentsu.length > 0) {
+          console.log(`面子: ${mentsu.map(c => c.toString()).join(' ')}`);
+        }
+        
+        // 雀頭（対子）の表示
+        const pairs = state.components.filter(c => c.type === ComponentType.PAIR);
+        if (pairs.length > 0) {
+          console.log(`対子: ${pairs.map(c => c.toString()).join(' ')}`);
+        }
+        
+        // 搭子の表示
+        const taatsu = state.components.filter(c => c.type === ComponentType.TAATSU);
+        if (taatsu.length > 0) {
+          console.log(`搭子: ${taatsu.map(c => c.toString()).join(' ')}`);
+        }
+        
+        // 孤立牌の表示
+        const isolated = state.components.filter(c => c.type === ComponentType.ISOLATED);
+        if (isolated.length > 0) {
+          console.log(`孤立牌: ${isolated.map(c => c.toString()).join(' ')}`);
+        }
+      });
+      
+      if (this.optimalStates.length > 3) {
+        console.log(`\n... 他 ${this.optimalStates.length - 3} パターン`);
+      }
+    }
+    
+    console.log(`=== デバッグ終了 ===\n`);
+  }
+
 
   /**
    * 七対子のシャンテン数を計算
@@ -268,25 +498,20 @@ export class ShantenCalculator {
     
     const handTileCount = hand.getTileCount();
     
-    const toitsu = handTileCount.countToitsu();
-    const kinds = handTileCount.countTilesWithAtLeast(1);
+    let pairs = 0;      // 対子の数
     
-    // 3枚以上ある牌の無駄な枚数を計算
-    let tooMany = 0;
+    // 各牌種について分析
     for (let i = 0; i < 34; i++) {
       const count = handTileCount.getCount(i);
-      if (count >= 3) {
-        tooMany += count - 2;
-      }
+        if (count >= 2) {
+          pairs++;
+        }
     }
-
-    // 七対子は7種類のペアが必要
-    // 同じ牌が3枚以上あると効率が悪い
-    if (kinds < 7) {
-      return 6 - toitsu + (7 - kinds);
-    }
-
-    return 6 - toitsu + tooMany;
+    
+    // 基本シャンテン数：7対子 - 現在の対子数
+    let shanten = 6 - pairs;
+    
+    return Math.max(shanten, -1);
   }
 
   /**
@@ -331,194 +556,6 @@ export class ShantenCalculator {
     // 13種類未満の場合
     return 13 - kinds - (toitsu > 0 ? 1 : 0);
   }
-
-
-
-
-  /**
-   * 残った牌から対子と搭子をカウント（分析結果付き）
-   */
-  private countRemainingTiles(tileCount: TileCount, returnAnalysis: boolean = false): { toitsu: number, taatsu: number, analysis?: RemainingTileAnalysis } {
-    let toitsu = 0;
-    let taatsu = 0;
-    const components: Component[] = returnAnalysis ? [] : [];
-    
-    // 全ての牌（数牌+字牌）の対子をカウント
-    for (let i = 0; i <= MAX_TILE_INDEX; i++) {
-      const count = tileCount.getCount(i);
-      if (count >= 2) {
-        toitsu++;
-        tileCount.decrement(i, 2);
-        if (returnAnalysis) {
-          components.push(Component.create(ComponentType.PAIR, [i, i]));
-        }
-      }
-    }
-    
-    // 数牌の搭子をカウント（字牌は搭子にならない）
-    const suitRanges = [SUIT_RANGES.MAN, SUIT_RANGES.PIN, SUIT_RANGES.SOU];
-    for (const suitRange of suitRanges) {
-      const start = suitRange.start;
-      const end = suitRange.end;
-      
-      // 隣接搭子をカウント
-      for (let i = start; i < end; i++) {
-        const count1 = tileCount.getCount(i);
-        const count2 = tileCount.getCount(i + 1);
-        if (count1 > 0 && count2 > 0) {
-          taatsu++;
-          tileCount.decrement(i);
-          tileCount.decrement(i + 1);
-          if (returnAnalysis) {
-            components.push(Component.create(ComponentType.TAATSU, [i, i + 1]));
-          }
-        }
-      }
-      
-      // 飛び搭子をカウント
-      for (let i = start; i < end - 1; i++) {
-        const count1 = tileCount.getCount(i);
-        const count3 = tileCount.getCount(i + 2);
-        if (count1 > 0 && count3 > 0) {
-          taatsu++;
-          tileCount.decrement(i);
-          tileCount.decrement(i + 2);
-          if (returnAnalysis) {
-            components.push(Component.create(ComponentType.TAATSU, [i, i + 2]));
-          }
-        }
-      }
-    }
-    
-    // 残りの孤立牌（分析時のみ）
-    if (returnAnalysis) {
-      for (let i = 0; i < 34; i++) {
-        const count = tileCount.getCount(i);
-        if (count > 0) {
-          for (let j = 0; j < count; j++) {
-            components.push(Component.create(ComponentType.ISOLATED, [i]));
-          }
-        }
-      }
-    }
-    
-    const result = { toitsu, taatsu };
-    if (returnAnalysis) {
-      return {
-        ...result,
-        analysis: {
-          toitsu,
-          taatsu,
-          components
-        }
-      };
-    }
-    return result;
-  }
-
-  /**
-   * 全牌一括での最適組み合わせ抽出（字牌含む）
-   */
-  private tryExtractOptimalCombination(
-    tiles: TileCount,
-    position: number,
-    currentMelds: number,
-    result: { minShanten: number, optimalCandidates: TileCount[], optimalDetails?: ShantenCalculationDetail[] },
-    currentMentsuList: Component[] = [],
-    includeDetails: boolean = false
-  ): void {
-    // 全ての位置を処理済みの場合
-    if (position >= 34) {  // 全牌（0-33）
-      // 残り牌から対子・搭子をカウント
-      const { toitsu, taatsu } = this.countRemainingTiles(tiles.clone());
-      
-      // シャンテン数計算
-      const jantou = currentMelds + taatsu + toitsu > 4 &&  toitsu > 0 ? 1 : 0;
-      let shanten = 8 - (currentMelds * 2) -  Math.min(taatsu + toitsu, 4 - currentMelds) - jantou;
-      shanten = Math.max(shanten, -1);
-      
-      // 最適解の更新
-      if (shanten < result.minShanten) {
-        result.minShanten = shanten;
-        result.optimalCandidates.length = 0;
-        result.optimalCandidates.push(tiles.clone());
-        
-        if (includeDetails) {
-          result.optimalDetails = [{
-            shanten,
-            mentsuList: [...currentMentsuList],
-            remainingTiles: tiles.clone()
-          }];
-        }
-      } else if (shanten === result.minShanten) {
-        result.optimalCandidates.push(tiles.clone());
-        
-        if (includeDetails && result.optimalDetails) {
-          result.optimalDetails.push({
-            shanten,
-            mentsuList: [...currentMentsuList],
-            remainingTiles: tiles.clone()
-          });
-        }
-      }
-      return;
-    }
-    
-    // 現在位置に牌がない場合は次へ
-    if (tiles.getCount(position) === 0) {
-      this.tryExtractOptimalCombination(tiles, position + 1, currentMelds, result, currentMentsuList, includeDetails);
-      return;
-    }
-    
-    // 刻子を試す（全ての位置で可能）
-    if (tiles.getCount(position) >= 3) {
-      tiles.decrement(position, 3);
-      
-      if (includeDetails) {
-        const component = Component.create(ComponentType.TRIPLET, [position, position, position]);
-        currentMentsuList.push(component);
-        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
-        currentMentsuList.pop();
-      } else {
-        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
-      }
-      
-      tiles.increment(position, 3);
-    }
-    
-    // 順子を試す（数牌のみ、スート境界をチェック）
-    if (position < 27 && this.canFormShuntsu(position) && 
-        tiles.getCount(position) > 0 && 
-        tiles.getCount(position + 1) > 0 && 
-        tiles.getCount(position + 2) > 0) {
-      tiles.decrement(position); tiles.decrement(position + 1); tiles.decrement(position + 2);
-      
-      if (includeDetails) {
-        const component = Component.create(ComponentType.SEQUENCE, [position, position + 1, position + 2]);
-        currentMentsuList.push(component);
-        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
-        currentMentsuList.pop();
-      } else {
-        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
-      }
-      
-      tiles.increment(position); tiles.increment(position + 1); tiles.increment(position + 2);
-    }
-    
-    // 何も取らずに次の位置へ
-    this.tryExtractOptimalCombination(tiles, position + 1, currentMelds, result, currentMentsuList, includeDetails);
-  }
-
-  /**
-   * 指定位置で順子を形成可能かチェック（スート境界考慮）
-   */
-  private canFormShuntsu(position: number): boolean {
-    // 萬子: 0-6, 筒子: 9-15, 索子: 18-24 で順子形成可能
-    return (position <= 6) || 
-           (position >= 9 && position <= 15) || 
-           (position >= 18 && position <= 24);
-  }
-
 
 
   /**
