@@ -5,6 +5,7 @@ import { Hand } from '../common/hand';
 import { HandType, WaitType } from '../common/types';
 import type { ShantenOptions } from '../common/types';
 import { TileCount } from '../common/tile-count';
+import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
 import { UsefulTilesCalculator } from './useful-tiles-calculator';
 import { Component, ComponentType } from '../common/component';
@@ -276,10 +277,11 @@ export class ShantenCalculator {
     
     // 国士無双対象牌のインデックス：端牌＋字牌
     const terminalIndices = [
-      0, 8,    // 1m, 9m
-      9, 17,   // 1p, 9p  
-      18, 26,  // 1s, 9s
-      27, 28, 29, 30, 31, 32, 33 // 1z-7z
+      SUIT_RANGES.MAN.start, SUIT_RANGES.MAN.end,    // 1m, 9m
+      SUIT_RANGES.PIN.start, SUIT_RANGES.PIN.end,    // 1p, 9p  
+      SUIT_RANGES.SOU.start, SUIT_RANGES.SOU.end,    // 1s, 9s
+      ...Array.from({ length: SUIT_RANGES.HONOR.end - SUIT_RANGES.HONOR.start + 1 }, 
+                     (_, i) => SUIT_RANGES.HONOR.start + i) // 1z-7z
     ];
 
     let kinds = 0;  // 異なり種類数
@@ -316,7 +318,7 @@ export class ShantenCalculator {
     const components: Component[] = returnAnalysis ? [] : [];
     
     // 全ての牌（数牌+字牌）の対子をカウント
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i <= MAX_TILE_INDEX; i++) {
       const count = tileCount.getCount(i);
       if (count >= 2) {
         toitsu++;
@@ -328,11 +330,13 @@ export class ShantenCalculator {
     }
     
     // 数牌の搭子をカウント（字牌は搭子にならない）
-    for (let suit = 0; suit < 3; suit++) {
-      const start = suit * 9;
+    const suitRanges = [SUIT_RANGES.MAN, SUIT_RANGES.PIN, SUIT_RANGES.SOU];
+    for (const suitRange of suitRanges) {
+      const start = suitRange.start;
+      const end = suitRange.end;
       
       // 隣接搭子をカウント
-      for (let i = start; i < start + 8; i++) {
+      for (let i = start; i < end; i++) {
         const count1 = tileCount.getCount(i);
         const count2 = tileCount.getCount(i + 1);
         if (count1 > 0 && count2 > 0) {
@@ -346,7 +350,7 @@ export class ShantenCalculator {
       }
       
       // 飛び搭子をカウント
-      for (let i = start; i < start + 7; i++) {
+      for (let i = start; i < end - 1; i++) {
         const count1 = tileCount.getCount(i);
         const count3 = tileCount.getCount(i + 2);
         if (count1 > 0 && count3 > 0) {

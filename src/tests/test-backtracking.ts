@@ -1,12 +1,12 @@
 // バックトラッキング法のテスト
 
-import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
 import { ShantenCalculator } from '../tensuu/shanten-calculator';
 
 // テスト用のHandオブジェクトを作成
 function createTestHand(tileStr: string): Hand {
-  const tiles = Tile.parseHandString(tileStr);
+  const tiles = HandParser.parseHandString(tileStr);
   const mockGameContext = {
     roundWind: 1 as any,
     playerWind: 1 as any,

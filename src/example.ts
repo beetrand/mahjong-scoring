@@ -1,6 +1,6 @@
 // 麻雀点数計算システム 使用例
 
-import { MahjongScorer, createGameContext, Tile, Hand } from './index';
+import { MahjongScorer, createGameContext, Tile, Hand, HandParser } from './index';
 
 function main() {
   console.log('=== 麻雀点数計算システム 使用例 ===\n');
@@ -136,7 +136,7 @@ function demonstrateTileOperations() {
   console.log(`赤五筒: ${tile1.toString()}, 赤ドラ: ${tile1.isRed}`);
   console.log(`東: ${tile2.toString()}, 字牌: ${tile2.isHonor()}`);
   
-  const handTiles = Tile.parseHandString('123m456p789s東東');
+  const handTiles = HandParser.parseHandString('123m456p789s東東');
   console.log(`手牌解析: ${handTiles.map(t => t.toString()).join('')}`);
   console.log(`牌数: ${handTiles.length}枚\n`);
 }

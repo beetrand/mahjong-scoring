@@ -2,6 +2,7 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
 import { ScoringResult } from './scoring';
 import { ShantenCalculator } from './shanten-calculator';
 import type { ShantenResult } from './shanten-calculator';
@@ -221,7 +222,7 @@ export class MahjongScorer {
       bonuses?: BonusPoints;
     } = {}
   ): ScoringResult {
-    const tiles = Tile.parseHandString(tilesStr);
+    const tiles = HandParser.parseHandString(tilesStr);
     
     if (tiles.length !== 14) {
       throw new Error(`Hand string must represent exactly 14 tiles, got ${tiles.length}`);

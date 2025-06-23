@@ -3,6 +3,7 @@
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
 import { HandType, TileSuit } from '../common/types';
+import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
 /**
  * 有効牌計算クラス
@@ -236,7 +237,7 @@ export class UsefulTilesCalculator {
     const kinds = handTileCount.countTilesWithAtLeast(1);
     
     let tooMany = 0;
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i <= MAX_TILE_INDEX; i++) {
       const count = handTileCount.getCount(i);
       if (count >= 3) {
         tooMany += count - 2;
@@ -260,12 +261,13 @@ export class UsefulTilesCalculator {
     
     const handTileCount = hand.getTileCount();
     
-    // 国士無双対象牌のインデックス
+    // 国士無双対象牌のインデックス：端牌＋字牌
     const terminalIndices = [
-      0, 8,    // 1m, 9m
-      9, 17,   // 1p, 9p  
-      18, 26,  // 1s, 9s
-      27, 28, 29, 30, 31, 32, 33 // 1z-7z
+      SUIT_RANGES.MAN.start, SUIT_RANGES.MAN.end,    // 1m, 9m
+      SUIT_RANGES.PIN.start, SUIT_RANGES.PIN.end,    // 1p, 9p  
+      SUIT_RANGES.SOU.start, SUIT_RANGES.SOU.end,    // 1s, 9s
+      ...Array.from({ length: SUIT_RANGES.HONOR.end - SUIT_RANGES.HONOR.start + 1 }, 
+                     (_, i) => SUIT_RANGES.HONOR.start + i) // 1z-7z
     ];
 
     let kinds = 0;

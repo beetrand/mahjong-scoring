@@ -1,4 +1,4 @@
-// 副露面子の文字列解析システム
+// 手牌・副露の文字列解析システム
 
 import { Tile } from './tile';
 import type { OpenMeld, OpenMeldType, MeldFrom } from './types';
@@ -17,7 +17,41 @@ const BRACKET_TYPE_MAP: Record<string, OpenMeldType> = {
   '(': 'minkan'   // 明槓 (1111m-)
 };
 
-export class MeldParser {
+/**
+ * 手牌・副露の文字列解析を統一的に管理するクラス
+ * 旧MeldParserの機能も包含
+ */
+export class HandParser {
+  /**
+   * 牌文字列を解析 (例: "123m456p789s1122z")
+   */
+  static parseHandString(handStr: string): Tile[] {
+    const tiles: Tile[] = [];
+    let currentNumber = '';
+    
+    for (let i = 0; i < handStr.length; i++) {
+      const char = handStr[i];
+      
+      if (char >= '0' && char <= '9') {
+        currentNumber += char;
+      } else if (char === 'm' || char === 'p' || char === 's') {
+        // 数牌の処理
+        for (const numChar of currentNumber) {
+          tiles.push(Tile.fromString(numChar + char));
+        }
+        currentNumber = '';
+      } else if (char === 'z') {
+        // 字牌の処理 (z記法)
+        for (const numChar of currentNumber) {
+          tiles.push(Tile.fromString(numChar + 'z'));
+        }
+        currentNumber = '';
+      }
+    }
+    
+    return tiles;
+  }
+
   /**
    * 副露表記の文字列を解析してOpenMeld配列を返す
    * 例: "[777p+] <123s=> (1111m-)" -> OpenMeld[]
@@ -38,7 +72,7 @@ export class MeldParser {
       }
       
       // 牌の解析
-      const tiles = Tile.parseHandString(tilesStr);
+      const tiles = this.parseHandString(tilesStr);
       const tileStrings = tiles.map(tile => tile.toString());
       
       // 副露タイプを判定
@@ -70,7 +104,52 @@ export class MeldParser {
     
     return melds;
   }
-  
+
+  /**
+   * 手牌文字列から門前牌と副露を分離して解析
+   * 例: "123m456p11z [777p+] <234s=>" -> { concealed: "123m456p11z", melds: [...] }
+   */
+  static parseHandWithMelds(handStr: string): { concealed: string, melds: OpenMeld[] } {
+    // 副露部分を抽出
+    const meldPattern = /([\[<(])([^>\]\)]+)([\+=\-])([\]\)>])/g;
+    const melds = this.parseOpenMelds(handStr);
+    
+    // 門前牌部分を抽出（副露部分を除去）
+    const concealed = handStr.replace(meldPattern, '').trim();
+    
+    return { concealed, melds };
+  }
+
+  /**
+   * OpenMeldを文字列表記に変換
+   */
+  static meldToString(meld: OpenMeld): string {
+    const tilesStr = meld.tiles.join('');
+    const directionChar = Object.entries(DIRECTION_MAP)
+      .find(([, dir]) => dir === meld.from)?.[0] || '+';
+    
+    switch (meld.type) {
+      case 'pon':
+        return `[${tilesStr}${directionChar}]`;
+      case 'chi':
+        return `<${tilesStr}${directionChar}>`;
+      case 'minkan':
+      case 'kakan':
+        return `(${tilesStr}${directionChar})`;
+      default:
+        throw new Error(`Unknown meld type: ${meld.type}`);
+    }
+  }
+
+  /**
+   * OpenMeld配列を文字列表記に変換
+   */
+  static meldsToString(melds: OpenMeld[]): string {
+    return melds.map(meld => this.meldToString(meld)).join(' ');
+  }
+
+  // ===== Private Helper Methods =====
+
   /**
    * 括弧のペアが正しいかチェック
    */
@@ -82,7 +161,7 @@ export class MeldParser {
     };
     return pairs[open] === close;
   }
-  
+
   /**
    * 副露面子の牌数と種類を検証
    */
@@ -111,7 +190,7 @@ export class MeldParser {
         break;
     }
   }
-  
+
   /**
    * 順子の検証（連続する3枚の数牌）
    */
@@ -136,7 +215,7 @@ export class MeldParser {
       }
     }
   }
-  
+
   /**
    * 刻子の検証（同じ牌3枚）
    */
@@ -148,7 +227,7 @@ export class MeldParser {
       throw new Error('Pon must be same tiles');
     }
   }
-  
+
   /**
    * 槓子の検証（同じ牌4枚）
    */
@@ -159,48 +238,5 @@ export class MeldParser {
     if (!tiles.every(tile => tile.equalsIgnoreRed(firstTile))) {
       throw new Error('Kan must be same tiles');
     }
-  }
-  
-  /**
-   * 手牌文字列から門前牌と副露を分離して解析
-   * 例: "123m456p11z [777p+] <234s=>" -> { concealed: "123m456p11z", melds: [...] }
-   */
-  static parseHandWithMelds(handStr: string): { concealed: string, melds: OpenMeld[] } {
-    // 副露部分を抽出
-    const meldPattern = /([\[<(])([^>\]\)]+)([\+=\-])([\]\)>])/g;
-    const melds = this.parseOpenMelds(handStr);
-    
-    // 門前牌部分を抽出（副露部分を除去）
-    const concealed = handStr.replace(meldPattern, '').trim();
-    
-    return { concealed, melds };
-  }
-  
-  /**
-   * OpenMeldを文字列表記に変換
-   */
-  static meldToString(meld: OpenMeld): string {
-    const tilesStr = meld.tiles.join('');
-    const directionChar = Object.entries(DIRECTION_MAP)
-      .find(([, dir]) => dir === meld.from)?.[0] || '+';
-    
-    switch (meld.type) {
-      case 'pon':
-        return `[${tilesStr}${directionChar}]`;
-      case 'chi':
-        return `<${tilesStr}${directionChar}>`;
-      case 'minkan':
-      case 'kakan':
-        return `(${tilesStr}${directionChar})`;
-      default:
-        throw new Error(`Unknown meld type: ${meld.type}`);
-    }
-  }
-  
-  /**
-   * OpenMeld配列を文字列表記に変換
-   */
-  static meldsToString(melds: OpenMeld[]): string {
-    return melds.map(meld => this.meldToString(meld)).join(' ');
   }
 }

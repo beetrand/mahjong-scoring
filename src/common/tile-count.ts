@@ -2,6 +2,7 @@
 
 import { Tile } from './tile';
 import { TileSuit } from './types';
+import { SUIT_RANGES, MAX_TILE_INDEX } from './tile-constants';
 
 /**
  * 34種類の麻雀牌の枚数を管理するクラス
@@ -12,12 +13,12 @@ export class TileCount {
 
   constructor(counts?: number[]) {
     if (counts) {
-      if (counts.length !== 34) {
-        throw new Error('TileCount must have exactly 34 elements');
+      if (counts.length !== MAX_TILE_INDEX + 1) {
+        throw new Error(`TileCount must have exactly ${MAX_TILE_INDEX + 1} elements`);
       }
       this.counts = [...counts];
     } else {
-      this.counts = new Array(34).fill(0);
+      this.counts = new Array(MAX_TILE_INDEX + 1).fill(0);
     }
   }
 
@@ -25,7 +26,7 @@ export class TileCount {
    * 指定したインデックスの枚数を取得
    */
   getCount(index: number): number {
-    if (index < 0 || index >= 34) {
+    if (index < 0 || index > MAX_TILE_INDEX) {
       throw new Error(`Invalid tile index: ${index}`);
     }
     return this.counts[index];
@@ -50,7 +51,7 @@ export class TileCount {
    * 指定したインデックスの枚数を設定
    */
   setCountByIndex(index: number, count: number): void {
-    if (index < 0 || index >= 34) {
+    if (index < 0 || index > MAX_TILE_INDEX) {
       throw new Error(`Invalid tile index: ${index}`);
     }
     this.validateCount(count);
@@ -96,7 +97,7 @@ export class TileCount {
    */
   add(other: TileCount): TileCount {
     const result = new TileCount();
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i <= MAX_TILE_INDEX; i++) {
       result.counts[i] = this.counts[i] + other.counts[i];
       if(result.counts[i] > 4){
         throw Error("tile count must be less than 5.")
@@ -109,7 +110,7 @@ export class TileCount {
    * 指定インデックスの枚数を増やす
    */
   increment(index: number, delta: number = 1): void {
-    if (index < 0 || index >= 34) {
+    if (index < 0 || index > MAX_TILE_INDEX) {
       throw new Error(`Invalid tile index: ${index}`);
     }
     const newCount = this.counts[index] + delta;
@@ -121,7 +122,7 @@ export class TileCount {
    * 指定インデックスの枚数を減らす
    */
   decrement(index: number, delta: number = 1): void {
-    if (index < 0 || index >= 34) {
+    if (index < 0 || index > MAX_TILE_INDEX) {
       throw new Error(`Invalid tile index: ${index}`);
     }
     const newCount = this.counts[index] - delta;
@@ -133,28 +134,28 @@ export class TileCount {
    * 萬子の枚数配列を取得 (0-8)
    */
   getManCounts(): number[] {
-    return this.counts.slice(0, 9);
+    return this.counts.slice(SUIT_RANGES.MAN.start, SUIT_RANGES.MAN.end + 1);
   }
 
   /**
    * 筒子の枚数配列を取得 (9-17)
    */
   getPinCounts(): number[] {
-    return this.counts.slice(9, 18);
+    return this.counts.slice(SUIT_RANGES.PIN.start, SUIT_RANGES.PIN.end + 1);
   }
 
   /**
    * 索子の枚数配列を取得 (18-26)
    */
   getSouCounts(): number[] {
-    return this.counts.slice(18, 27);
+    return this.counts.slice(SUIT_RANGES.SOU.start, SUIT_RANGES.SOU.end + 1);
   }
 
   /**
    * 字牌の枚数配列を取得 (27-33)
    */
   getHonorCounts(): number[] {
-    return this.counts.slice(27, 34);
+    return this.counts.slice(SUIT_RANGES.HONOR.start, SUIT_RANGES.HONOR.end + 1);
   }
 
   /**
@@ -228,7 +229,7 @@ export class TileCount {
    */
   validate(): void {
     // 個別の牌の枚数チェック
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i <= MAX_TILE_INDEX; i++) {
       this.validateCount(this.counts[i]);
     }
 
@@ -239,7 +240,7 @@ export class TileCount {
     }
 
     // 各牌タイプの総数チェック（赤ドラ考慮で最大4枚）
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i <= MAX_TILE_INDEX; i++) {
       if (this.counts[i] > 4) {
         throw new Error(`Tile at index ${i} has ${this.counts[i]} tiles, maximum is 4`);
       }
@@ -252,15 +253,15 @@ export class TileCount {
   private getTileIndex(tile: Tile): number {
     switch (tile.suit) {
       case TileSuit.MAN:
-        return tile.value - 1; // 0-8
+        return SUIT_RANGES.MAN.start + tile.value - 1;
       case TileSuit.PIN:
-        return tile.value - 1 + 9; // 9-17
+        return SUIT_RANGES.PIN.start + tile.value - 1;
       case TileSuit.SOU:
-        return tile.value - 1 + 18; // 18-26
+        return SUIT_RANGES.SOU.start + tile.value - 1;
       case TileSuit.WIND:
-        return tile.value - 1 + 27; // 27-30
+        return SUIT_RANGES.HONOR.start + tile.value - 1;
       case TileSuit.DRAGON:
-        return tile.value - 1 + 31; // 31-33
+        return SUIT_RANGES.HONOR.start + 4 + tile.value - 1; // 4 wind tiles before dragons
       default:
         throw new Error(`Unknown tile suit: ${tile.suit}`);
     }

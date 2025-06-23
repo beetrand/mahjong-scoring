@@ -2,7 +2,7 @@
 
 import { Tile } from '../common/tile';
 import type { ComponentCombination } from '../common/component';
-import { Component } from '../common/component';
+import { Component, ComponentType } from '../common/component';
 import type { YakuContext } from '../common/types';
 
 export interface YakuResult {
@@ -95,7 +95,7 @@ export class YakuhaiYaku extends Yaku {
 
   public isApplicable(combination: ComponentCombination, context: YakuContext): boolean {
     return combination.melds.some(meld => 
-      meld.type === 'triplet' && this.isYakuhaiTile(meld.getTileValue(), context)
+      meld.type === ComponentType.TRIPLET && this.isYakuhaiTile(meld.getTileValue(), context)
     ) || combination.pair.isValuePair();
   }
 
@@ -127,14 +127,14 @@ export class IttsuYaku extends Yaku {
   public readonly isYakuman = false;
 
   public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
-    const sequences = combination.melds.filter((meld: Component) => meld.type === 'sequence');
+    const sequences = combination.melds.filter((meld: Component) => meld.type === ComponentType.SEQUENCE);
     
     for (const suit of ['man', 'pin', 'sou'] as const) {
-      const suitSequences = sequences.filter(seq => seq.getTileValue().suit === suit);
+      const suitSequences = sequences.filter((seq: Component) => seq.getTileValue().suit === suit);
       
-      const has123 = suitSequences.some(seq => seq.getTileValue().value === 1);
-      const has456 = suitSequences.some(seq => seq.getTileValue().value === 4);
-      const has789 = suitSequences.some(seq => seq.getTileValue().value === 7);
+      const has123 = suitSequences.some((seq: Component) => seq.getTileValue().value === 1);
+      const has456 = suitSequences.some((seq: Component) => seq.getTileValue().value === 4);
+      const has789 = suitSequences.some((seq: Component) => seq.getTileValue().value === 7);
       
       if (has123 && has456 && has789) {
         return true;
@@ -159,7 +159,7 @@ export class ToitoiYaku extends Yaku {
   public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     // 4つの面子が全て刻子または槓子
     const tripletOrQuads = combination.melds.filter((meld: Component) => 
-      meld.type === 'triplet' || meld.type === 'quad'
+      meld.type === ComponentType.TRIPLET || meld.type === 'quad'
     );
     
     return tripletOrQuads.length === 4;
@@ -172,7 +172,7 @@ export class SanshokudoujunYaku extends Yaku {
   public readonly isYakuman = false;
 
   public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
-    const sequences = combination.melds.filter((meld: Component) => meld.type === 'sequence');
+    const sequences = combination.melds.filter((meld: Component) => meld.type === ComponentType.SEQUENCE);
     
     // 同じ数字の順子が3色にあるかチェック
     for (let value = 1; value <= 7; value++) {
@@ -205,14 +205,14 @@ export class SanshokudoukouYaku extends Yaku {
 
   public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     const triplets = combination.melds.filter((meld: Component) => 
-      meld.type === 'triplet' || meld.type === 'quad'
+      meld.type === ComponentType.TRIPLET || meld.type === 'quad'
     );
     
     // 同じ数字の刻子が3色にあるかチェック
     for (let value = 1; value <= 9; value++) {
       const suits = ['man', 'pin', 'sou'] as const;
       const foundSuits = suits.filter(suit => 
-        triplets.some(triplet => {
+        triplets.some((triplet: Component) => {
           const tile = triplet.getTileValue();
           return tile.suit === suit && tile.value === value;
         })
@@ -239,7 +239,7 @@ export class HonroutouYaku extends Yaku {
     ];
 
     // 全て刻子・槓子・対子（順子がない）
-    const hasSequence = combination.melds.some(meld => meld.type === 'sequence');
+    const hasSequence = combination.melds.some(meld => meld.type === ComponentType.SEQUENCE);
     if (hasSequence) return false;
 
     // 全て幺九牌（1・9・字牌）
@@ -254,7 +254,7 @@ export class SanankoYaku extends Yaku {
 
   public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     const concealedTriplets = combination.melds.filter((meld: Component) => 
-      (meld.type === 'triplet' || meld.type === 'quad') && meld.isConcealed
+      (meld.type === ComponentType.TRIPLET || meld.type === 'quad') && meld.isConcealed
     );
     
     return concealedTriplets.length === 3;
@@ -291,7 +291,7 @@ export class SuuankoYaku extends Yaku {
 
   public isApplicable(combination: ComponentCombination, context: YakuContext): boolean {
     const concealedTriplets = combination.melds.filter((meld: Component) => 
-      (meld.type === 'triplet' || meld.type === 'quad') && meld.isConcealed
+      (meld.type === ComponentType.TRIPLET || meld.type === 'quad') && meld.isConcealed
     );
     
     return concealedTriplets.length === 4 && context.isTsumo;
@@ -305,7 +305,7 @@ export class DaisangenYaku extends Yaku {
 
   public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     const dragonTriplets = combination.melds.filter((meld: Component) => 
-      (meld.type === 'triplet' || meld.type === 'quad') && 
+      (meld.type === ComponentType.TRIPLET || meld.type === 'quad') && 
       meld.getTileValue().isDragon()
     );
     

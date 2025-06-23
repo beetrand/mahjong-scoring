@@ -1,7 +1,8 @@
 // 麻雀 Component クラス - 面子と残り牌の統一表現
 
 import { Tile } from './tile';
-import type { FuContext } from './types';
+import { indexToTileName } from './tile-constants';
+import type { FuContext, WaitType } from './types';
 
 export const ComponentType = {
   SEQUENCE: 'sequence',    // 順子 (123)
@@ -224,12 +225,6 @@ export class Component {
 
   // インデックスからTileオブジェクトを作成（静的メソッド）
   private static createTileFromIndex(index: number): Tile {
-    const indexToTileName = (index: number): string => {
-      if (index < 9) return `${index + 1}m`;      // 萬子
-      if (index < 18) return `${index - 8}p`;     // 筒子  
-      if (index < 27) return `${index - 17}s`;    // 索子
-      return `${index - 26}z`;                    // 字牌
-    };
     return Tile.fromString(indexToTileName(index));
   }
 
@@ -322,7 +317,7 @@ export class Component {
 export interface ComponentCombination {
   melds: Component[];
   pair: Component;
-  waitType: 'ryanmen' | 'kanchan' | 'penchan' | 'shanpon' | 'tanki';
+  waitType: WaitType;
 }
 
 /**

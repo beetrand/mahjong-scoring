@@ -1,6 +1,12 @@
 // 麻雀牌クラス
 
 import { TileSuit } from './types';
+import { 
+  calculateIndex as calculateTileIndex, 
+  getSuitFromIndex, 
+  getValueFromIndex,
+  MAX_TILE_INDEX 
+} from './tile-constants';
 
 export class Tile {
   public readonly suit: TileSuit;
@@ -49,40 +55,20 @@ export class Tile {
    * 31-33: 三元牌 (5z-7z)
    */
   private calculateIndex(): number {
-    if (this.suit === 'man') {
-      return this.value - 1; // 0-8
-    } else if (this.suit === 'pin') {
-      return 9 + this.value - 1; // 9-17
-    } else if (this.suit === 'sou') {
-      return 18 + this.value - 1; // 18-26
-    } else if (this.suit === 'wind') {
-      return 27 + this.value - 1; // 27-30
-    } else if (this.suit === 'dragon') {
-      return 31 + this.value - 1; // 31-33
-    } else {
-      throw new Error(`Invalid tile suit: ${this.suit}`);
-    }
+    return calculateTileIndex(this.suit, this.value);
   }
 
   /**
    * インデックスから牌を作成（ユーティリティメソッド）
    */
   public static fromIndex(index: number): Tile {
-    if (index < 0 || index > 33) {
+    if (index < 0 || index > MAX_TILE_INDEX) {
       throw new Error(`Invalid tile index: ${index}`);
     }
     
-    if (index <= 8) {
-      return new Tile('man', index + 1);
-    } else if (index <= 17) {
-      return new Tile('pin', index - 9 + 1);
-    } else if (index <= 26) {
-      return new Tile('sou', index - 18 + 1);
-    } else if (index <= 30) {
-      return new Tile('wind', index - 27 + 1);
-    } else {
-      return new Tile('dragon', index - 31 + 1);
-    }
+    const suit = getSuitFromIndex(index);
+    const value = getValueFromIndex(index);
+    return new Tile(suit, value);
   }
 
   public toString(): string {
@@ -176,44 +162,6 @@ export class Tile {
     return tiles.map(tileStr => Tile.fromString(tileStr));
   }
 
-  // 牌文字列を解析 (例: "123m456p789s1122z")
-  public static parseHandString(handStr: string): Tile[] {
-    const tiles: Tile[] = [];
-    let currentNumber = '';
-    
-    for (let i = 0; i < handStr.length; i++) {
-      const char = handStr[i];
-      
-      if (char >= '0' && char <= '9') {
-        currentNumber += char;
-      } else if (char === 'm' || char === 'p' || char === 's') {
-        // 数牌の処理
-        for (const numChar of currentNumber) {
-          const value = parseInt(numChar);
-          const suitMap: { [key: string]: TileSuit } = {
-            'm': 'man', 'p': 'pin', 's': 'sou'
-          };
-          tiles.push(new Tile(suitMap[char], value));
-        }
-        currentNumber = '';
-      } else if (char === 'z') {
-        // 字牌の処理 (z記法)
-        for (const numChar of currentNumber) {
-          const value = parseInt(numChar);
-          if (value >= 1 && value <= 4) {
-            // 1z=東, 2z=南, 3z=西, 4z=北
-            tiles.push(new Tile('wind', value));
-          } else if (value >= 5 && value <= 7) {
-            // 5z=白, 6z=發, 7z=中
-            tiles.push(new Tile('dragon', value - 4));
-          }
-        }
-        currentNumber = '';
-      }
-    }
-    
-    return tiles;
-  }
 
   // ソート用比較関数
   public static compare(a: Tile, b: Tile): number {

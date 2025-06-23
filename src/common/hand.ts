@@ -1,7 +1,7 @@
 // 手牌クラス
 
 import { Tile } from './tile';
-import { MeldParser } from './meld-parser';
+import { HandParser } from './hand-parser';
 import { TileCount } from './tile-count';
 import type { HandOptions, OpenMeld, GameContext } from './types';
 
@@ -177,7 +177,7 @@ export class Hand {
   }
 
   public static fromString(tilesStr: string, options: HandOptions): Hand {
-    const tiles = Tile.parseHandString(tilesStr);
+    const tiles = HandParser.parseHandString(tilesStr);
     return new Hand(tiles, options);
   }
 
@@ -187,8 +187,8 @@ export class Hand {
    * 例: "123m456p11z [777p+] <234s=>"
    */
   public static fromStringWithMelds(handStr: string, options: Omit<HandOptions, 'openMelds'>): Hand {
-    const { concealed, melds } = MeldParser.parseHandWithMelds(handStr);
-    const tiles = Tile.parseHandString(concealed);
+    const { concealed, melds } = HandParser.parseHandWithMelds(handStr);
+    const tiles = HandParser.parseHandString(concealed);
     
     return new Hand(tiles, {
       ...options,

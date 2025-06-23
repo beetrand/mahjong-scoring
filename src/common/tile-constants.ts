@@ -68,3 +68,64 @@ export const HONOR_TILES = {
   GREEN: 32,  // 6z: 發
   RED: 33     // 7z: 中
 } as const;
+
+/**
+ * 風牌と三元牌の境界
+ */
+export const WIND_DRAGON_BOUNDARY = 30; // 風牌は27-30、三元牌は31-33
+
+/**
+ * 最大インデックス
+ */
+export const MAX_TILE_INDEX = 33;
+
+/**
+ * インデックスがどのスートに属するかを判定
+ */
+export function getSuitFromIndex(index: number): 'man' | 'pin' | 'sou' | 'wind' | 'dragon' {
+  if (index >= SUIT_RANGES.MAN.start && index <= SUIT_RANGES.MAN.end) return 'man';
+  if (index >= SUIT_RANGES.PIN.start && index <= SUIT_RANGES.PIN.end) return 'pin';
+  if (index >= SUIT_RANGES.SOU.start && index <= SUIT_RANGES.SOU.end) return 'sou';
+  if (index >= HONOR_TILES.EAST && index <= WIND_DRAGON_BOUNDARY) return 'wind';
+  if (index >= HONOR_TILES.WHITE && index <= HONOR_TILES.RED) return 'dragon';
+  throw new Error(`Invalid tile index: ${index}`);
+}
+
+/**
+ * スートとvalueからインデックスを計算
+ */
+export function calculateIndex(suit: 'man' | 'pin' | 'sou' | 'wind' | 'dragon', value: number): number {
+  switch (suit) {
+    case 'man':
+      return SUIT_RANGES.MAN.start + value - 1;
+    case 'pin':
+      return SUIT_RANGES.PIN.start + value - 1;
+    case 'sou':
+      return SUIT_RANGES.SOU.start + value - 1;
+    case 'wind':
+      return HONOR_TILES.EAST + value - 1;
+    case 'dragon':
+      return HONOR_TILES.WHITE + value - 1;
+    default:
+      throw new Error(`Invalid suit: ${suit}`);
+  }
+}
+
+/**
+ * インデックスからスート内のvalueを計算
+ */
+export function getValueFromIndex(index: number): number {
+  const suit = getSuitFromIndex(index);
+  switch (suit) {
+    case 'man':
+      return index - SUIT_RANGES.MAN.start + 1;
+    case 'pin':
+      return index - SUIT_RANGES.PIN.start + 1;
+    case 'sou':
+      return index - SUIT_RANGES.SOU.start + 1;
+    case 'wind':
+      return index - HONOR_TILES.EAST + 1;
+    case 'dragon':
+      return index - HONOR_TILES.WHITE + 1;
+  }
+}

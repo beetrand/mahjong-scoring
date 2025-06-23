@@ -28,6 +28,7 @@ export {
   LimitHandType
 } from './tensuu/scoring';
 export { Hand } from './common/hand';
+export { HandParser } from './common/hand-parser';
 import { MahjongScorer } from './tensuu/mahjong-scorer';
 import { Hand } from './common/hand';
 export { MahjongScorer };

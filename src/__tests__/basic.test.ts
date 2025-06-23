@@ -2,6 +2,7 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
 import { Component } from '../common/component';
 import { MahjongScorer, createGameContext } from '../index';
 
@@ -82,7 +83,7 @@ describe('Tile クラス', () => {
 
 
   test('手牌文字列の解析', () => {
-    const tiles = Tile.parseHandString('123m456p789s11z');
+    const tiles = HandParser.parseHandString('123m456p789s11z');
     expect(tiles).toHaveLength(11);
     expect(tiles[0].toString()).toBe('1m');
     expect(tiles[9].toString()).toBe('1z');
@@ -90,14 +91,14 @@ describe('Tile クラス', () => {
 
   test('z記法を含む手牌文字列の解析', () => {
     // z記法のみ
-    const tiles1 = Tile.parseHandString('123m456p789s1122z');
+    const tiles1 = HandParser.parseHandString('123m456p789s1122z');
     expect(tiles1).toHaveLength(12);
     expect(tiles1[9].toString()).toBe('1z'); // 1z
     expect(tiles1[10].toString()).toBe('1z'); // 1z
     expect(tiles1[11].toString()).toBe('2z'); // 2z
 
     // 全種類の字牌
-    const tiles3 = Tile.parseHandString('1234567z');
+    const tiles3 = HandParser.parseHandString('1234567z');
     expect(tiles3).toHaveLength(7);
     expect(tiles3[0].toString()).toBe('1z'); // 1z
     expect(tiles3[1].toString()).toBe('2z'); // 2z
