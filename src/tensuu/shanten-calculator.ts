@@ -9,6 +9,7 @@ import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
 import { UsefulTilesCalculator } from './useful-tiles-calculator';
 import { Component, ComponentType } from '../common/component';
+import { UnifiedShantenCalculator } from './shanten-calculator-v2';
 
 /**
  * 面子の種類（レガシー互換性のため残存）
@@ -76,10 +77,12 @@ export interface ShantenResult {
 export class ShantenCalculator {
   // 各計算機のインスタンス
   private usefulTilesCalculator: UsefulTilesCalculator;
+  private unifiedCalculator: UnifiedShantenCalculator;
 
   constructor() {
     // 各計算機を初期化
     this.usefulTilesCalculator = new UsefulTilesCalculator();
+    this.unifiedCalculator = new UnifiedShantenCalculator();
   }
 
   /**
@@ -170,6 +173,29 @@ export class ShantenCalculator {
    * @return シャンテン数と最適な面子構成の候補リスト
    */
   public calculateRegularShanten(hand: Hand, includeDetails: boolean = false, debugLog: boolean = false): RegularShantenResult {
+    const handTileCount = hand.getTileCount();
+    const meldCount = hand.getMeldCount();
+    
+    // 新しい統一バックトラッキングアルゴリズムを使用
+    const shanten = this.unifiedCalculator.calculateRegularShanten(handTileCount, meldCount, debugLog);
+    
+    // 互換性のため、既存の形式で結果を返す
+    const result: RegularShantenResult = {
+      shanten: shanten,
+      candidates: [handTileCount], // 簡略化
+      ...(includeDetails && { details: [] })
+    };
+    
+    // デバッグログは統一バックトラッキング内で出力済み
+    
+    return result;
+  }
+
+  /**
+   * 通常手のシャンテン数を計算（レガシー版 - 比較用に残す）
+   */
+  // @ts-ignore
+  private calculateRegularShantenLegacy(hand: Hand, includeDetails: boolean = false, debugLog: boolean = false): RegularShantenResult {
     const handTileCount = hand.getTileCount();
     const meldCount = hand.getMeldCount();
     
@@ -407,7 +433,8 @@ export class ShantenCalculator {
       const { toitsu, taatsu } = this.countRemainingTiles(tiles.clone());
       
       // シャンテン数計算
-      let shanten = 8 - (currentMelds * 2) -  Math.min(taatsu + toitsu, 4 - currentMelds) - Math.min(toitsu, 1);
+      const jantou = currentMelds + taatsu + toitsu > 4 &&  toitsu > 0 ? 1 : 0;
+      let shanten = 8 - (currentMelds * 2) -  Math.min(taatsu + toitsu, 4 - currentMelds) - jantou;
       shanten = Math.max(shanten, -1);
       
       // 最適解の更新

@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "validate:shanten": "tsx src/tests/run-validation.ts",
+    "validate:small": "tsx src/tests/shanten-validation.ts 100",
+    "validate:medium": "tsx src/tests/shanten-validation.ts 1000"
   },
   "dependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.43.0",
