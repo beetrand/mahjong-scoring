@@ -1,7 +1,7 @@
 // 役判定システム
 
 import { Tile } from '../common/tile';
-import type { MentsuCombination } from './shanten-calculator';
+import type { MentsuCombination } from '../common/mentsu';
 import type { YakuContext } from '../common/types';
 
 export interface YakuResult {

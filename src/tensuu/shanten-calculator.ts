@@ -5,13 +5,55 @@ import { Hand } from '../common/hand';
 import { HandType, WaitType } from '../common/types';
 import type { ShantenOptions } from '../common/types';
 import { TileCount } from '../common/tile-count';
+import { indexToTileName } from '../common/tile-constants';
 
 import { UsefulTilesCalculator } from './useful-tiles-calculator';
-import { MentsuCombinationFinder } from './mentsu-combination-finder';
-import type { MentsuCombination } from './mentsu-combination-finder';
 
-// 型をエクスポート
-export type { MentsuCombination } from './mentsu-combination-finder';
+/**
+ * 面子の種類
+ */
+export const MentsuType = {
+  SHUNTSU: 'shuntsu',  // 順子
+  KOUTSU: 'koutsu',    // 刻子
+  TOITSU: 'toitsu'     // 対子（雀頭）
+} as const;
+
+export type MentsuType = typeof MentsuType[keyof typeof MentsuType];
+
+/**
+ * 面子情報
+ */
+export interface MentsuInfo {
+  type: MentsuType;
+  tiles: number[];  // 牌のインデックス
+}
+
+/**
+ * 残り牌の構成要素
+ */
+export interface RemainingTileComponent {
+  type: 'toitsu' | 'taatsu' | 'isolated';
+  tiles: number[];  // 牌のインデックス
+}
+
+/**
+ * 残り牌の分析結果
+ */
+export interface RemainingTileAnalysis {
+  toitsu: number;
+  taatsu: number;
+  components: RemainingTileComponent[];
+}
+
+/**
+ * シャンテン計算の詳細情報
+ */
+export interface ShantenCalculationDetail {
+  shanten: number;
+  mentsuList: MentsuInfo[];  // 使用した面子のリスト
+  remainingTiles: TileCount; // 残り牌
+  jatou?: MentsuInfo;        // 雀頭
+}
 
 /**
  * 通常手シャンテン計算の結果
@@ -19,6 +61,7 @@ export type { MentsuCombination } from './mentsu-combination-finder';
 export interface RegularShantenResult {
   shanten: number;
   candidates: TileCount[];  // 最適な面子構成の候補リスト（残り牌のTileCount）
+  details?: ShantenCalculationDetail[];  // 詳細情報（オプション）
 }
 
 
@@ -30,7 +73,6 @@ export interface ShantenResult {
   readonly chitoitsuShanten: number;
   readonly kokushiShanten: number;
   usefulTiles?: Tile[];
-  mentsuCombinations?: MentsuCombination[];
   waitType?: WaitType;
 }
 
@@ -41,12 +83,10 @@ export interface ShantenResult {
 export class ShantenCalculator {
   // 各計算機のインスタンス
   private usefulTilesCalculator: UsefulTilesCalculator;
-  private mentsuCombinationFinder: MentsuCombinationFinder;
 
   constructor() {
     // 各計算機を初期化
     this.usefulTilesCalculator = new UsefulTilesCalculator();
-    this.mentsuCombinationFinder = new MentsuCombinationFinder();
   }
 
   /**
@@ -54,25 +94,23 @@ export class ShantenCalculator {
    * 最も高速な計算で、シャンテン数のみを返す
    */
   public calculateShantenNumber(hand: Hand): number {
-    const basicResult = this.calculateShanten(hand,{includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+    const basicResult = this.calculateShanten(hand,{includeUsefulTiles: false, includeWaitType: false});
     return basicResult.shanten;
   }
 
 
   /**
    * シャンテン結果計算
-   * オプションに応じて有効牌や面子組み合わせも含む
+   * オプションに応じて有効牌も含む
    * @param hand 手牌オブジェクト（副露情報含む）
    * @param options 計算オプション
    */
   public calculateShanten(hand: Hand, 
-    options: ShantenOptions = {includeUsefulTiles: true, includeMentsuCombinations: false, includeWaitType: true}): ShantenResult {
+    options: ShantenOptions = {includeUsefulTiles: true, includeWaitType: true}): ShantenResult {
 
     // 全タイプのシャンテン数を計算
-    const regularShantenResult = this.calculateRegularShanten(hand);
-    for(let candidate of regularShantenResult.candidates){
-      console.log(candidate)
-    }
+    const regularShantenResult = this.calculateRegularShanten(hand, true, true);
+
 
     const chitoitsuShanten = this.calculateChitoitsuShanten(hand);
     const kokushiShanten = this.calculateKokushiShanten(hand);
@@ -106,10 +144,6 @@ export class ShantenCalculator {
       result.usefulTiles = this.usefulTilesCalculator.calculateUsefulTiles(tiles, bestHandType);
     }
 
-    if (options.includeMentsuCombinations && bestShanten === -1) {
-      result.mentsuCombinations = this.mentsuCombinationFinder.findAllCombinations(tiles);
-    }
-
     if (options.includeWaitType && bestShanten <= 0) {
       result.waitType = this.calculateWaitType(tiles, bestHandType);
     }
@@ -126,13 +160,6 @@ export class ShantenCalculator {
   }
 
 
-  /**
-   * 面子組み合わせを独立して計算
-   */
-  public findAllMentsuCombinationsFromHand(hand: Hand): MentsuCombination[] {
-    const tiles = hand.getTehai();
-    return this.mentsuCombinationFinder.findAllCombinations(tiles);
-  }
 
   /**
    * Hand オブジェクトが和了形かチェック
@@ -145,23 +172,60 @@ export class ShantenCalculator {
   /**
    * 通常手のシャンテン数を計算（Hand基盤）
    * @param hand 手牌オブジェクト
+   * @param includeDetails 詳細情報を含めるか
+   * @param debugLog デバッグログを出力するか
    * @return シャンテン数と最適な面子構成の候補リスト
    */
-  public calculateRegularShanten(hand: Hand): RegularShantenResult {
+  public calculateRegularShanten(hand: Hand, includeDetails: boolean = false, debugLog: boolean = false): RegularShantenResult {
     const handTileCount = hand.getTileCount();
     const meldCount = hand.getMeldCount();
     
     // 全牌一括バックトラッキングで最適解を探索
     const result = {
       minShanten: 8,
-      optimalCandidates: [] as TileCount[]
+      optimalCandidates: [] as TileCount[],
+      optimalDetails: [] as ShantenCalculationDetail[]
     };
     
-    this.tryExtractOptimalCombination(handTileCount.clone(), 0, meldCount, result);
+    this.tryExtractOptimalCombination(handTileCount.clone(), 0, meldCount, result, [], includeDetails);
+    
+    // デバッグログの出力
+    if(debugLog && result.optimalDetails && result.optimalDetails.length > 0) {
+      console.log(`\n=== シャンテン計算詳細 (${result.optimalDetails.length}パターン) ===`);
+      for(let i = 0; i < result.optimalDetails.length; i++){
+        const detail = result.optimalDetails[i];
+        console.log(`\n--- パターン ${i + 1} ---`);
+        console.log(`シャンテン数: ${detail.shanten}`);
+        
+        // 面子の表示
+        if(detail.mentsuList.length > 0) {
+          const mentsuStrings = detail.mentsuList.map((mentsu) => {
+            const tileNames = mentsu.tiles.map(indexToTileName).join('');
+            return `(${tileNames})`;
+          });
+          console.log(`面子: ${mentsuStrings.join('')}`);
+        }
+        
+        // 雀頭の表示
+        if(detail.jatou) {
+          const jatouTiles = detail.jatou.tiles.map(indexToTileName).join('');
+          console.log(`雀頭: ${jatouTiles}`);
+        }
+        
+        // 残り牌をターツ・といつ・孤立牌に分類して表示
+        const remainingResult = this.countRemainingTiles(detail.remainingTiles.clone(), true);
+        if(remainingResult.analysis && remainingResult.analysis.components.length > 0) {
+          const remainingDisplay = this.formatRemainingTileComponents(remainingResult.analysis.components);
+          console.log(`残り牌: ${remainingDisplay}`);
+        }
+      }
+      console.log('=== 詳細終了 ===\n');
+    }
     
     return {
       shanten: result.minShanten,
-      candidates: result.optimalCandidates
+      candidates: result.optimalCandidates,
+      ...(includeDetails && { details: result.optimalDetails })
     };
   }
 
@@ -244,11 +308,12 @@ export class ShantenCalculator {
 
 
   /**
-   * 残った牌から対子と搭子をカウント
+   * 残った牌から対子と搭子をカウント（分析結果付き）
    */
-  private countRemainingTiles(tileCount: TileCount): { toitsu: number, taatsu: number } {
+  private countRemainingTiles(tileCount: TileCount, returnAnalysis: boolean = false): { toitsu: number, taatsu: number, analysis?: RemainingTileAnalysis } {
     let toitsu = 0;
     let taatsu = 0;
+    const components: RemainingTileComponent[] = returnAnalysis ? [] : [];
     
     // 全ての牌（数牌+字牌）の対子をカウント
     for (let i = 0; i < 34; i++) {
@@ -256,6 +321,12 @@ export class ShantenCalculator {
       if (count >= 2) {
         toitsu++;
         tileCount.decrement(i, 2);
+        if (returnAnalysis) {
+          components.push({
+            type: 'toitsu',
+            tiles: [i, i]
+          });
+        }
       }
     }
     
@@ -271,6 +342,12 @@ export class ShantenCalculator {
           taatsu++;
           tileCount.decrement(i);
           tileCount.decrement(i + 1);
+          if (returnAnalysis) {
+            components.push({
+              type: 'taatsu',
+              tiles: [i, i + 1]
+            });
+          }
         }
       }
       
@@ -282,11 +359,43 @@ export class ShantenCalculator {
           taatsu++;
           tileCount.decrement(i);
           tileCount.decrement(i + 2);
+          if (returnAnalysis) {
+            components.push({
+              type: 'taatsu',
+              tiles: [i, i + 2]
+            });
+          }
         }
       }
     }
     
-    return { toitsu, taatsu };
+    // 残りの孤立牌（分析時のみ）
+    if (returnAnalysis) {
+      for (let i = 0; i < 34; i++) {
+        const count = tileCount.getCount(i);
+        if (count > 0) {
+          for (let j = 0; j < count; j++) {
+            components.push({
+              type: 'isolated',
+              tiles: [i]
+            });
+          }
+        }
+      }
+    }
+    
+    const result = { toitsu, taatsu };
+    if (returnAnalysis) {
+      return {
+        ...result,
+        analysis: {
+          toitsu,
+          taatsu,
+          components
+        }
+      };
+    }
+    return result;
   }
 
   /**
@@ -296,7 +405,9 @@ export class ShantenCalculator {
     tiles: TileCount,
     position: number,
     currentMelds: number,
-    result: { minShanten: number, optimalCandidates: TileCount[] }
+    result: { minShanten: number, optimalCandidates: TileCount[], optimalDetails?: ShantenCalculationDetail[] },
+    currentMentsuList: MentsuInfo[] = [],
+    includeDetails: boolean = false
   ): void {
     // 全ての位置を処理済みの場合
     if (position >= 34) {  // 全牌（0-33）
@@ -304,10 +415,7 @@ export class ShantenCalculator {
       const { toitsu, taatsu } = this.countRemainingTiles(tiles.clone());
       
       // シャンテン数計算
-      let shanten = 8 - (currentMelds * 2) - taatsu - toitsu;
-      if (toitsu === 0) {
-        shanten += 1;  // 雀頭なし
-      }
+      let shanten = 8 - (currentMelds * 2) -  Math.min(taatsu + toitsu, 4 - currentMelds) - Math.min(toitsu, 1);
       shanten = Math.max(shanten, -1);
       
       // 最適解の更新
@@ -315,22 +423,50 @@ export class ShantenCalculator {
         result.minShanten = shanten;
         result.optimalCandidates.length = 0;
         result.optimalCandidates.push(tiles.clone());
+        
+        if (includeDetails) {
+          result.optimalDetails = [{
+            shanten,
+            mentsuList: [...currentMentsuList],
+            remainingTiles: tiles.clone()
+          }];
+        }
       } else if (shanten === result.minShanten) {
         result.optimalCandidates.push(tiles.clone());
+        
+        if (includeDetails && result.optimalDetails) {
+          result.optimalDetails.push({
+            shanten,
+            mentsuList: [...currentMentsuList],
+            remainingTiles: tiles.clone()
+          });
+        }
       }
       return;
     }
     
     // 現在位置に牌がない場合は次へ
     if (tiles.getCount(position) === 0) {
-      this.tryExtractOptimalCombination(tiles, position + 1, currentMelds, result);
+      this.tryExtractOptimalCombination(tiles, position + 1, currentMelds, result, currentMentsuList, includeDetails);
       return;
     }
     
     // 刻子を試す（全ての位置で可能）
     if (tiles.getCount(position) >= 3) {
       tiles.decrement(position, 3);
-      this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result);
+      
+      if (includeDetails) {
+        const mentsuInfo: MentsuInfo = {
+          type: MentsuType.KOUTSU,
+          tiles: [position, position, position]
+        };
+        currentMentsuList.push(mentsuInfo);
+        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
+        currentMentsuList.pop();
+      } else {
+        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
+      }
+      
       tiles.increment(position, 3);
     }
     
@@ -340,12 +476,24 @@ export class ShantenCalculator {
         tiles.getCount(position + 1) > 0 && 
         tiles.getCount(position + 2) > 0) {
       tiles.decrement(position); tiles.decrement(position + 1); tiles.decrement(position + 2);
-      this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result);
+      
+      if (includeDetails) {
+        const mentsuInfo: MentsuInfo = {
+          type: MentsuType.SHUNTSU,
+          tiles: [position, position + 1, position + 2]
+        };
+        currentMentsuList.push(mentsuInfo);
+        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
+        currentMentsuList.pop();
+      } else {
+        this.tryExtractOptimalCombination(tiles, position, currentMelds + 1, result, currentMentsuList, includeDetails);
+      }
+      
       tiles.increment(position); tiles.increment(position + 1); tiles.increment(position + 2);
     }
     
     // 何も取らずに次の位置へ
-    this.tryExtractOptimalCombination(tiles, position + 1, currentMelds, result);
+    this.tryExtractOptimalCombination(tiles, position + 1, currentMelds, result, currentMentsuList, includeDetails);
   }
 
   /**
@@ -356,6 +504,26 @@ export class ShantenCalculator {
     return (position <= 6) || 
            (position >= 9 && position <= 15) || 
            (position >= 18 && position <= 24);
+  }
+
+
+  /**
+   * 残り牌コンポーネントを文字列にフォーマット
+   */
+  private formatRemainingTileComponents(components: RemainingTileComponent[]): string {
+    return components.map(component => {
+      const tileNames = component.tiles.map(indexToTileName).join('');
+      switch (component.type) {
+        case 'toitsu':
+          return `${tileNames}(対子)`;
+        case 'taatsu':
+          return `${tileNames}(搭子)`;
+        case 'isolated':
+          return `${tileNames}(孤立牌)`;
+        default:
+          return tileNames;
+      }
+    }).join(' ');
   }
 
   /**

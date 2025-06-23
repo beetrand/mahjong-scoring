@@ -2,7 +2,7 @@
 
 import { Mentsu } from '../common/mentsu';
 import { WaitType } from '../common/types';
-import type { MentsuCombination } from './shanten-calculator';
+import type { MentsuCombination } from '../common/mentsu';
 import type { YakuResult } from './yaku';
 import type { FuContext, BonusPoints } from '../common/types';
 

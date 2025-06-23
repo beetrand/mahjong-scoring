@@ -26,7 +26,7 @@ try {
   });
   
   const simpleShanten = shantenCalculator.calculateShantenNumber(menzenHand);
-  const basicResult = shantenCalculator.calculateShanten(menzenHand, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+  const basicResult = shantenCalculator.calculateShanten(menzenHand, {includeUsefulTiles: false, includeWaitType: false});
   const detailedResult = shantenCalculator.calculateShanten(menzenHand);
   
   console.log(`  門前手シャンテン（軽量）: ${simpleShanten}`);
@@ -50,7 +50,7 @@ try {
   });
   
   const simpleShanten = shantenCalculator.calculateShantenNumber(hand1);
-  const basicResult = shantenCalculator.calculateShanten(hand1, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+  const basicResult = shantenCalculator.calculateShanten(hand1, {includeUsefulTiles: false, includeWaitType: false});
   const detailedResult = shantenCalculator.calculateShanten(hand1);
   
   console.log(`  1副露シャンテン（軽量）: ${simpleShanten} (期待: -1=和了)`);
@@ -80,7 +80,7 @@ try {
   
   // 新APIではHandオブジェクトのみを受け取る
   const shanten1 = shantenCalculator.calculateShantenNumber(hand);
-  const basic1 = shantenCalculator.calculateShanten(hand, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+  const basic1 = shantenCalculator.calculateShanten(hand, {includeUsefulTiles: false, includeWaitType: false});
   const detailed1 = shantenCalculator.calculateShanten(hand);
   const useful1 = shantenCalculator.calculateUsefulTiles(hand);
   

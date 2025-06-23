@@ -2,122 +2,22 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
-import { YakuDetector } from './yaku';
-import { FuCalculator, ScoreCalculator, PaymentCalculator, ScoringResult } from './scoring';
+import { ScoringResult } from './scoring';
 import { ShantenCalculator } from './shanten-calculator';
-import type { MentsuCombination } from './shanten-calculator';
-import type { YakuResult } from './yaku';
 import type { ShantenResult } from './shanten-calculator';
-import type { GameContext, YakuContext, FuContext, BonusPoints, OpenMeld, HandAnalysisResult, HandState } from '../common/types';
+import type { GameContext, BonusPoints, OpenMeld, HandAnalysisResult, HandState } from '../common/types';
 
 export class MahjongScorer {
-  private yakuDetector: YakuDetector;
-  private fuCalculator: FuCalculator;
-  private scoreCalculator: ScoreCalculator;
-  private paymentCalculator: PaymentCalculator;
   private shantenCalculator: ShantenCalculator;
 
   constructor() {
-    this.yakuDetector = new YakuDetector();
-    this.fuCalculator = new FuCalculator();
-    this.scoreCalculator = new ScoreCalculator();
-    this.paymentCalculator = new PaymentCalculator();
     this.shantenCalculator = new ShantenCalculator();
   }
 
-  public scoreHand(hand: Hand, bonuses: BonusPoints = { riichiSticks: 0, honbaSticks: 0 }): ScoringResult {
-    // 1. 詳細シャンテン計算で手牌解析（Handオブジェクトから副露情報を自動取得）
-    const shantenResult = this.shantenCalculator.calculateShanten(hand, {
-      includeMentsuCombinations: true
-    });
-    
-    if (shantenResult.shanten !== -1) {
-      throw new Error(`Hand is not winning: ${shantenResult.shanten} shanten`);
-    }
-    
-    if (!shantenResult.mentsuCombinations || shantenResult.mentsuCombinations.length === 0) {
-      throw new Error('No valid winning hand found');
-    }
-
-    // 2. 最適な組み合わせを選択
-    const bestResult = this.findBestCombination(shantenResult.mentsuCombinations, hand);
-    
-    if (!bestResult) {
-      throw new Error('No valid yaku found');
-    }
-
-    const { combination, yakuResults, totalHan } = bestResult;
-
-    // 3. 符計算
-    const fuContext: FuContext = {
-      gameContext: hand.gameContext,
-      winningTile: hand.drawnTile.toString(),
-      isTsumo: hand.isTsumo,
-      isOpenHand: hand.isOpenHand()
-    };
-    const fuResult = this.fuCalculator.calculateFu(combination, fuContext);
-
-    // 4. 点数計算
-    const isDealer = hand.gameContext.playerWind === 1; // 東家
-    const scoreResult = this.scoreCalculator.calculateScore(totalHan, fuResult.totalFu, isDealer);
-
-    // 5. 支払い計算
-    const paymentResult = this.paymentCalculator.calculatePayments(
-      scoreResult,
-      hand.isTsumo,
-      isDealer,
-      bonuses
-    );
-
-    return ScoringResult.create(
-      shantenResult.mentsuCombinations,
-      combination,
-      yakuResults,
-      fuResult,
-      scoreResult,
-      paymentResult
-    );
+  public scoreHand(_hand: Hand, _bonuses: BonusPoints = { riichiSticks: 0, honbaSticks: 0 }): ScoringResult {
+    throw new Error('MentsuCombination-based scoring is not implemented. Use ShantenCalculator for analysis only.');
   }
 
-  private findBestCombination(
-    combinations: MentsuCombination[], 
-    hand: Hand
-  ): { combination: MentsuCombination, yakuResults: YakuResult[], totalHan: number } | null {
-    let bestResult: { combination: MentsuCombination, yakuResults: YakuResult[], totalHan: number } | null = null;
-    let maxScore = 0;
-
-    for (const combination of combinations) {
-      const yakuContext: YakuContext = {
-        gameContext: hand.gameContext,
-        winningTile: hand.drawnTile.toString(),
-        isTsumo: hand.isTsumo,
-        isRiichi: hand.isRiichi,
-        isOpenHand: hand.isOpenHand()
-      };
-
-      const yakuResults = this.yakuDetector.detectYaku(combination, yakuContext);
-      const totalHan = this.yakuDetector.calculateTotalHan(yakuResults);
-
-      if (totalHan > 0) {
-        const fuContext: FuContext = {
-          gameContext: hand.gameContext,
-          winningTile: hand.drawnTile.toString(),
-          isTsumo: hand.isTsumo,
-          isOpenHand: hand.isOpenHand()
-        };
-        const fuResult = this.fuCalculator.calculateFu(combination, fuContext);
-        const isDealer = hand.gameContext.playerWind === 1;
-        const scoreResult = this.scoreCalculator.calculateScore(totalHan, fuResult.totalFu, isDealer);
-
-        if (scoreResult.finalScore > maxScore) {
-          maxScore = scoreResult.finalScore;
-          bestResult = { combination, yakuResults, totalHan };
-        }
-      }
-    }
-
-    return bestResult;
-  }
 
   /**
    * 手牌オブジェクトのシャンテン数を計算（副露対応）

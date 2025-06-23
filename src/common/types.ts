@@ -58,7 +58,6 @@ export interface ShantenConfig {
 // シャンテン計算オプション
 export interface ShantenOptions {
   includeUsefulTiles?: boolean;        // 有効牌を計算に含めるか（デフォルト: false）
-  includeMentsuCombinations?: boolean; // 面子組み合わせを含めるか（デフォルト: false）
   includeWaitType?: boolean;           // 待ちの形を含めるか（デフォルト: false）
   handTypes?: HandType[];              // 計算対象の手牌タイプ（未指定時は全て）
 }

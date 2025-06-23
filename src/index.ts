@@ -4,7 +4,6 @@ export { Tile } from './common/tile';
 export { Mentsu } from './common/mentsu';
 export { ShantenCalculator } from './tensuu/shanten-calculator';
 export { UsefulTilesCalculator } from './tensuu/useful-tiles-calculator';
-export { MentsuCombinationFinder } from './tensuu/mentsu-combination-finder';
 export { 
   Yaku, 
   YakuDetector,
@@ -42,7 +41,7 @@ export {
 } from './common/types';
 
 // 型のエクスポート
-export type { MentsuCombination } from './tensuu/shanten-calculator';
+export type { MentsuCombination } from './common/mentsu';
 export type { ShantenResult } from './tensuu/shanten-calculator';
 export type { YakuResult } from './tensuu/yaku';
 export type { 

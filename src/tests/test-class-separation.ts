@@ -3,7 +3,6 @@
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
 import { UsefulTilesCalculator } from '../tensuu/useful-tiles-calculator';
-import { MentsuCombinationFinder } from '../tensuu/mentsu-combination-finder';
 import { ShantenCalculator } from '../tensuu/shanten-calculator';
 // import { HandType } from '../common/types';
 
@@ -62,30 +61,19 @@ function testClassSeparation() {
     console.log(`  最適有効牌例: ${bestUsefulTiles.slice(0, 5).map(t => t.toString()).join(', ')}`);
   }
   
-  console.log('\\n3. MentsuCombinationFinder テスト');
-  const mentsuFinder = new MentsuCombinationFinder();
-  // 和了形でテスト（字牌は正しい範囲で）
-  const winningTiles = createTestHand(['1m', '1m', '1m', '2p', '3p', '4p', '5s', '6s', '7s', '1z', '1z', '1z', '2z', '2z']);
-  const combinations = mentsuFinder.findAllCombinations(winningTiles);
-  const bestCombination = mentsuFinder.findBestCombination(winningTiles);
-  
-  console.log(`  組み合わせ数: ${combinations.length}`);
-  console.log(`  最適組み合わせ: ${bestCombination ? '見つかった' : '見つからない'}`);
-  
-  console.log('\\n4. 統合ShantenCalculator API テスト');
+  console.log('\\n3. 統合ShantenCalculator API テスト');
   
   // 軽量計算
   const simpleShanten = shantenCalculator.calculateShantenNumber(testHandObject);
   console.log(`  軽量シャンテン: ${simpleShanten}`);
   
   // 基本計算
-  const basicResult = shantenCalculator.calculateShanten(testHandObject, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+  const basicResult = shantenCalculator.calculateShanten(testHandObject, {includeUsefulTiles: false, includeWaitType: false});
   console.log(`  基本結果 - シャンテン: ${basicResult.shanten}, タイプ: ${basicResult.handType}`);
   
   // 詳細計算
   const detailedResult = shantenCalculator.calculateShanten(testHandObject, {
-    includeUsefulTiles: true,
-    includeMentsuCombinations: false
+    includeUsefulTiles: true
   });
   console.log(`  詳細結果 - 有効牌数: ${detailedResult.usefulTiles?.length || 0}`);
   

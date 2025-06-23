@@ -1,8 +1,14 @@
 // 麻雀面子クラス
 
 import { Tile } from './tile';
-import { MentsuType } from './types';
+import { MentsuType, WaitType } from './types';
 import type { FuContext } from './types';
+
+export interface MentsuCombination {
+  melds: Mentsu[];
+  pair: Mentsu;
+  waitType: WaitType;
+}
 
 export class Mentsu {
   public readonly tiles: Tile[];

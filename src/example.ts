@@ -84,7 +84,7 @@ function main() {
   console.log('【例4-2】シャンテン数計算');
   const testhands: {hai: string, tsumo: string}[]= 
   [
-    //{hai:"11234567888999m",tsumo:"9m"},
+    {hai:"123m89m1289p1289s1z",tsumo:"9m"},
     //{hai:"2345666m123p4566s",tsumo:"6s"},
     {hai:"223456m123p4568s",tsumo:"6s"},
   ];

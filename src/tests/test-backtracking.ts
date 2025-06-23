@@ -34,6 +34,12 @@ function testBacktracking() {
       description: '234m(順子) + 56m(搭子) + 66m(雀頭) + 123p(順子) + 456s(順子) = テンパイ'
     },
     {
+      name: 'バグ調査ケース（223456m123p4568s）',
+      tiles: '223456m123p4568s',
+      expectedShanten: 0,
+      description: '22m(雀頭) + 345m(順子) + 123p(順子) + 456s(順子) = テンパイ'
+    },
+    {
       name: '問題のケース（11234567888999m）',
       tiles: '11234567888999m',
       expectedShanten: -1,
@@ -87,7 +93,7 @@ function testBacktracking() {
     const hand = createTestHand(testCase.tiles);
     
     // 通常手のシャンテン数を計算（有効牌計算なし）
-    const shantenResult = calculator.calculateShanten(hand, {includeUsefulTiles: false, includeMentsuCombinations: false, includeWaitType: false});
+    const shantenResult = calculator.calculateShanten(hand, {includeUsefulTiles: false, includeWaitType: false});
     const shanten = shantenResult.shanten;
     const regularShanten = calculator.calculateRegularShanten(hand).shanten;
     
@@ -96,8 +102,8 @@ function testBacktracking() {
     console.log(`期待値: ${testCase.expectedShanten}シャンテン`);
     console.log(`結果: ${shanten === testCase.expectedShanten ? '✓ 成功' : '✗ 失敗'}`);
     
-    // 詳細版のテスト
-    const detailedResult = calculator.calculateRegularShanten(hand);
+    // 詳細版のテスト（デバッグログ付き）
+    const detailedResult = calculator.calculateRegularShanten(hand, true, testCase.name.includes('新しい問題') || testCase.name.includes('バグ調査'));
     console.log(`詳細版シャンテン: ${detailedResult.shanten}`);
     console.log(`候補数: ${detailedResult.candidates.length}`);
     
