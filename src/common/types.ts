@@ -55,15 +55,6 @@ export interface ShantenConfig {
   enableKokushi?: boolean;      // 国士無双計算を有効にするか（デフォルト: true）
 }
 
-// シャンテン分析結果（通常手のみ面子分解情報を含む）
-export interface ShantenAnalysisResult {
-  readonly shanten: number;
-  readonly handType: HandType;
-  
-  // 通常手の場合のみ面子分解結果を含む
-  readonly optimalStates?: import('../tensuu/shanten-calculator').BacktrackState[];
-}
-
 export const Wind = {
   EAST: 1,
   SOUTH: 2,

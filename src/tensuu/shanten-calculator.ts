@@ -3,31 +3,38 @@
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
 import { HandType } from '../common/types';
-import type { ShantenAnalysisResult } from '../common/types';
 import { TileCount } from '../common/tile-count';
 import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
 import { UsefulTilesCalculator } from './useful-tiles-calculator';
 import { Component, ComponentType } from '../common/component';
 
+// 国士無双対象牌のインデックス（定数化）
+const KOKUSHI_TERMINAL_INDICES = [
+  SUIT_RANGES.MAN.start, SUIT_RANGES.MAN.end,    // 1m, 9m
+  SUIT_RANGES.PIN.start, SUIT_RANGES.PIN.end,    // 1p, 9p  
+  SUIT_RANGES.SOU.start, SUIT_RANGES.SOU.end,    // 1s, 9s
+  ...Array.from({ length: SUIT_RANGES.HONOR.end - SUIT_RANGES.HONOR.start + 1 }, 
+                 (_, i) => SUIT_RANGES.HONOR.start + i) // 1z-7z
+] as const;
+
 /**
- * バックトラッキング状態を管理する構造体
+ * 手牌の面子構成状態
  */
-export interface BacktrackState {
+export interface MentsuComposition {
   mentsuCount: number;    // 面子数（刻子・順子）
   toitsuCount: number;    // 対子数
   taatsuCount: number;    // 搭子数
-  hasJantou: boolean;     // 雀頭確定フラグ
   components: Component[]; // 抽出したコンポーネント
 }
 
-/**
- * 残り牌の分析結果（Componentベース）
- */
-export interface RemainingTileAnalysis {
-  toitsu: number;
-  taatsu: number;
-  components: Component[];
+// シャンテン分析結果（通常手のみ面子分解情報を含む）
+export interface ShantenAnalysisResult {
+  readonly shanten: number;
+  readonly handType: HandType;
+  
+  // 通常手の場合のみ面子分解結果を含む
+  readonly optimalStates?: MentsuComposition[];
 }
 
 /**
@@ -35,7 +42,7 @@ export interface RemainingTileAnalysis {
  */
 export interface RegularShantenResult {
   shanten: number;
-  optimalStates: BacktrackState[];  // 最適な状態配列
+  optimalCompositions: MentsuComposition[];  // 最適な面子構成配列
 }
 
 /**
@@ -43,11 +50,11 @@ export interface RegularShantenResult {
  * 各計算機を統合
  */
 /**
- * バックトラッキング計算コンテキスト
+ * 面子分解計算コンテキスト
  */
-interface BacktrackContext {
+interface MentsuAnalysisContext {
   minShanten: number;
-  optimalStates: BacktrackState[];
+  optimalCompositions: MentsuComposition[];
   debugMode: boolean;
 }
 
@@ -99,7 +106,7 @@ export class ShantenCalculator {
       return {
         shanten: bestShanten,
         handType: bestHandType,
-        optimalStates: regularShantenResult.optimalStates
+        optimalStates: regularShantenResult.optimalCompositions
       };
     } else {
       return {
@@ -135,10 +142,10 @@ export class ShantenCalculator {
     const handTileCount = hand.getTileCount();
     const meldCount = hand.getMeldCount();
     
-    // バックトラッキングコンテキストを作成（スレッドセーフ）
-    const context: BacktrackContext = {
+    // 面子分解コンテキストを作成（スレッドセーフ）
+    const context: MentsuAnalysisContext = {
       minShanten: 8,
-      optimalStates: [],
+      optimalCompositions: [],
       debugMode: debugLog
     };
     
@@ -148,11 +155,10 @@ export class ShantenCalculator {
       console.log(`副露面子数: ${meldCount}`);
     }
     
-    const initialState: BacktrackState = {
+    const initialState: MentsuComposition = {
       mentsuCount: meldCount,
       toitsuCount: 0,
       taatsuCount: 0,
-      hasJantou: false,
       components: []
     };
     
@@ -166,7 +172,7 @@ export class ShantenCalculator {
     // 結果を返す
     return {
       shanten: context.minShanten,
-      optimalStates: [...context.optimalStates] // 最適な状態をコピー
+      optimalCompositions: [...context.optimalCompositions] // 最適な状態をコピー
     };
   }
 
@@ -174,7 +180,7 @@ export class ShantenCalculator {
    * バックトラッキング
    * 面子・対子・搭子を同時に最適化
    */
-  private backtrack(tiles: TileCount, position: number, state: BacktrackState, context: BacktrackContext): void {
+  private backtrack(tiles: TileCount, position: number, state: MentsuComposition, context: MentsuAnalysisContext): void {
     // 全ての位置を処理済み
     if (position > MAX_TILE_INDEX) {
       // 残り牌を孤立牌として追加（デバッグ時のみ）
@@ -266,7 +272,7 @@ export class ShantenCalculator {
   /**
    * 現在の状態を評価してシャンテン数を計算
    */
-  private evaluateState(_tiles: TileCount, state: BacktrackState, context: BacktrackContext): void {
+  private evaluateState(_tiles: TileCount, state: MentsuComposition, context: MentsuAnalysisContext): void {
     const mentsu = state.mentsuCount;
     const toitsu = state.toitsuCount;
     const taatsu = state.taatsuCount;
@@ -285,15 +291,15 @@ export class ShantenCalculator {
     // 最適解の更新（常に状態保存）
     if (shanten < context.minShanten) {
       context.minShanten = shanten;
-      context.optimalStates = [this.cloneState(state)];
+      context.optimalCompositions = [this.cloneState(state)];
     } else if (shanten === context.minShanten) {
       // 重複チェック: 同じComponent配列が既に存在するかチェック
-      const isDuplicate = context.optimalStates.some(existingState => 
+      const isDuplicate = context.optimalCompositions.some(existingState => 
         Component.areComponentArraysEqual(existingState.components, state.components)
       );
       
       if (!isDuplicate) {
-        context.optimalStates.push(this.cloneState(state));
+        context.optimalCompositions.push(this.cloneState(state));
       }
     }
   }
@@ -301,16 +307,14 @@ export class ShantenCalculator {
   /**
    * 状態のクローン
    */
-  private cloneState(state: BacktrackState): BacktrackState {
+  private cloneState(state: MentsuComposition): MentsuComposition {
     return {
       mentsuCount: state.mentsuCount,
       toitsuCount: state.toitsuCount,
       taatsuCount: state.taatsuCount,
-      hasJantou: state.hasJantou,
       components: [...state.components]
     };
   }
-
 
   /**
    * 順子を形成可能かチェック（スート境界考慮）
@@ -342,7 +346,7 @@ export class ShantenCalculator {
   /**
    * 残り牌を孤立牌として状態に追加（デバッグ時のみ）
    */
-  private addRemainingTilesToState(tiles: TileCount, state: BacktrackState): void {
+  private addRemainingTilesToState(tiles: TileCount, state: MentsuComposition): void {
     // 残った牌を孤立牌として追加
     for (let i = 0; i < 34; i++) {
       const count = tiles.getCount(i);
@@ -355,7 +359,7 @@ export class ShantenCalculator {
   /**
    * 残り牌を孤立牌として状態から削除（デバッグ時のみ）
    */
-  private removeRemainingTilesFromState(tiles: TileCount, state: BacktrackState): void {
+  private removeRemainingTilesFromState(tiles: TileCount, state: MentsuComposition): void {
     // 残った牌の数だけpop
     for (let i = 0; i < 34; i++) {
       const count = tiles.getCount(i);
@@ -393,14 +397,14 @@ export class ShantenCalculator {
   /**
    * デバッグ結果の出力
    */
-  private outputDebugResults(context: BacktrackContext): void {
+  private outputDebugResults(context: MentsuAnalysisContext): void {
     console.log(`\n=== バックトラッキング結果 ===`);
     console.log(`最小シャンテン数: ${context.minShanten}`);
-    console.log(`最適パターン数: ${context.optimalStates.length} (重複除去済み)`);
+    console.log(`最適パターン数: ${context.optimalCompositions.length} (重複除去済み)`);
     
-    if (context.optimalStates.length > 0) {
+    if (context.optimalCompositions.length > 0) {
       console.log(`\n=== 最適パターン詳細 ===`);
-      context.optimalStates.slice(0, 3).forEach((state, index) => {
+      context.optimalCompositions.slice(0, 3).forEach((state, index) => {
         console.log(`\n--- パターン ${index + 1} ---`);
         console.log(`面子数: ${state.mentsuCount}, 対子数: ${state.toitsuCount}, 搭子数: ${state.taatsuCount}`);
         
@@ -429,8 +433,8 @@ export class ShantenCalculator {
         }
       });
       
-      if (context.optimalStates.length > 3) {
-        console.log(`\n... 他 ${context.optimalStates.length - 3} パターン`);
+      if (context.optimalCompositions.length > 3) {
+        console.log(`\n... 他 ${context.optimalCompositions.length - 3} パターン`);
       }
     }
     
@@ -478,19 +482,10 @@ export class ShantenCalculator {
     
     const handTileCount = hand.getTileCount();
     
-    // 国士無双対象牌のインデックス：端牌＋字牌
-    const terminalIndices = [
-      SUIT_RANGES.MAN.start, SUIT_RANGES.MAN.end,    // 1m, 9m
-      SUIT_RANGES.PIN.start, SUIT_RANGES.PIN.end,    // 1p, 9p  
-      SUIT_RANGES.SOU.start, SUIT_RANGES.SOU.end,    // 1s, 9s
-      ...Array.from({ length: SUIT_RANGES.HONOR.end - SUIT_RANGES.HONOR.start + 1 }, 
-                     (_, i) => SUIT_RANGES.HONOR.start + i) // 1z-7z
-    ];
-
     let kinds = 0;  // 異なり種類数
     let toitsu = 0;  // 対子数
 
-    for (const index of terminalIndices) {
+    for (const index of KOKUSHI_TERMINAL_INDICES) {
       const count = handTileCount.getCount(index);
       if (count >= 1) {
         kinds++;

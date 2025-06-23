@@ -3,7 +3,7 @@
 import { Hand } from '../common/hand';
 import { ComponentType } from '../common/component';
 import type { ComponentCombination } from '../common/component';
-import { ShantenCalculator, type BacktrackState } from './shanten-calculator';
+import { ShantenCalculator, type MentsuComposition } from './shanten-calculator';
 
 /**
  * 手牌の分析に特化したクラス
@@ -33,7 +33,7 @@ export class HandAnalyzer {
     // optimalStatesからComponentCombinationを作成
     const combinations: ComponentCombination[] = [];
     
-    for (const state of result.optimalStates) {
+    for (const state of result.optimalCompositions) {
       const combination = this.createComponentCombination(state, hand);
       if (combination) {
         combinations.push(combination);
@@ -44,9 +44,9 @@ export class HandAnalyzer {
   }
 
   /**
-   * BacktrackStateからComponentCombinationを作成
+   * MentsuCompositionからComponentCombinationを作成
    */
-  private createComponentCombination(state: BacktrackState, hand: Hand): ComponentCombination | null {
+  private createComponentCombination(state: MentsuComposition, hand: Hand): ComponentCombination | null {
     try {
       // 門前のComponent（バックトラッキングで見つかった面子・対子）と副露面子を統合
       const allComponents = [...state.components, ...hand.openMelds];

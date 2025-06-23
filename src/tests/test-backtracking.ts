@@ -104,11 +104,11 @@ function testBacktracking() {
     // 詳細版のテスト（デバッグログ付き）
     const detailedResult = calculator.calculateRegularShanten(hand, testCase.name.includes('新しい問題') || testCase.name.includes('バグ調査'));
     console.log(`詳細版シャンテン: ${detailedResult.shanten}`);
-    console.log(`最適パターン数: ${detailedResult.optimalStates.length}`);
+    console.log(`最適パターン数: ${detailedResult.optimalCompositions.length}`);
     
-    if (detailedResult.optimalStates.length > 0 && testCase.name === '問題のケース（11234567888999m）') {
+    if (detailedResult.optimalCompositions.length > 0 && testCase.name === '問題のケース（11234567888999m）') {
       console.log('最適パターン（面子分解）:');
-      const state = detailedResult.optimalStates[0];
+      const state = detailedResult.optimalCompositions[0];
       console.log(`  面子数: ${state.mentsuCount}, 対子数: ${state.toitsuCount}, 搭子数: ${state.taatsuCount}`);
       console.log(`  解説: バックトラッキングによる最適分解`);
     }
