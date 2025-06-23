@@ -5,79 +5,79 @@ import { Hand } from '../common/hand';
 import { HandParser } from '../common/hand-parser';
 import { Component } from '../common/component';
 import { MahjongScorer, createGameContext } from '../index';
+import { 
+  createManTile,
+  createPinTile,
+  createSouTile,
+  createDragonTile,
+  createWindTile,
+  expectTileEqual,
+  SUITS
+} from '../common/test-helpers';
 
 describe('Tile クラス', () => {
   test('数牌の作成', () => {
-    const tile = new Tile('man' as any, 1);
-    expect(tile.suit).toBe('man');
+    const tile = createManTile(1);
+    expect(tile.suit).toBe(SUITS.MAN);
     expect(tile.value).toBe(1);
     expect(tile.isRed).toBe(false);
     expect(tile.toString()).toBe('1m');
   });
 
   test('字牌の作成', () => {
-    const eastTile = new Tile('wind' as any, 1);
+    const eastTile = createWindTile('EAST');
     expect(eastTile.toString()).toBe('1z');
     
-    const whiteTile = new Tile('dragon' as any, 1);
+    const whiteTile = createDragonTile('WHITE');
     expect(whiteTile.toString()).toBe('5z');
   });
 
   test('赤ドラの作成', () => {
-    const redFive = new Tile('pin' as any, 5, true);
+    const redFive = createPinTile(5, true);
     expect(redFive.isRed).toBe(true);
     expect(redFive.toString()).toBe('5pr');
   });
 
   test('文字列からの作成', () => {
     const tile1 = Tile.fromString('1m');
-    expect(tile1.suit).toBe('man');
-    expect(tile1.value).toBe(1);
+    expectTileEqual(tile1, { suit: SUITS.MAN, value: 1 });
 
     const tile2 = Tile.fromString('5pr');
     expect(tile2.isRed).toBe(true);
 
     const tile3 = Tile.fromString('1z');
-    expect(tile3.suit).toBe('wind');
-    expect(tile3.value).toBe(1);
+    expectTileEqual(tile3, { suit: SUITS.WIND, value: 1 });
   });
 
   test('z記法の字牌作成', () => {
     // 風牌のテスト
     const east = Tile.fromString('1z');
-    expect(east.suit).toBe('wind');
-    expect(east.value).toBe(1);
+    expectTileEqual(east, { suit: SUITS.WIND, value: 1 });
     expect(east.toString()).toBe('1z');
 
     const south = Tile.fromString('2z');
-    expect(south.suit).toBe('wind');
-    expect(south.value).toBe(2);
+    expectTileEqual(south, { suit: SUITS.WIND, value: 2 });
     expect(south.toString()).toBe('2z');
 
     const west = Tile.fromString('3z');
-    expect(west.suit).toBe('wind');
-    expect(west.value).toBe(3);
+    expectTileEqual(west, { suit: SUITS.WIND, value: 3 });
     expect(west.toString()).toBe('3z');
 
     const north = Tile.fromString('4z');
-    expect(north.suit).toBe('wind');
-    expect(north.value).toBe(4);
+    expectTileEqual(north, { suit: SUITS.WIND, value: 4 });
     expect(north.toString()).toBe('4z');
 
     // 三元牌のテスト
     const white = Tile.fromString('5z');
-    expect(white.suit).toBe('dragon');
-    expect(white.value).toBe(1);
+    expectTileEqual(white, { suit: SUITS.DRAGON, value: 1 });
     expect(white.toString()).toBe('5z');
 
     const green = Tile.fromString('6z');
-    expect(green.suit).toBe('dragon');
-    expect(green.value).toBe(2);
+    expectTileEqual(green, { suit: SUITS.DRAGON, value: 2 });
     expect(green.toString()).toBe('6z');
 
     const red = Tile.fromString('7z');
-    expect(red.suit).toBe('dragon');
-    expect(red.value).toBe(3);
+    expectTileEqual(red, { suit: SUITS.DRAGON, value: 3 });
     expect(red.toString()).toBe('7z');
   });
 
@@ -110,16 +110,16 @@ describe('Tile クラス', () => {
   });
 
   test('牌の判定メソッド', () => {
-    const simpleTile = new Tile('man' as any, 5);
+    const simpleTile = createManTile(5);
     expect(simpleTile.isSimple()).toBe(true);
     expect(simpleTile.isTerminal()).toBe(false);
     expect(simpleTile.isHonor()).toBe(false);
 
-    const terminalTile = new Tile('pin' as any, 9);
+    const terminalTile = createPinTile(9);
     expect(terminalTile.isTerminal()).toBe(true);
     expect(terminalTile.isSimple()).toBe(false);
 
-    const honorTile = new Tile('wind' as any, 1);
+    const honorTile = createWindTile('EAST');
     expect(honorTile.isHonor()).toBe(true);
     expect(honorTile.isWind()).toBe(true);
   });
@@ -128,9 +128,9 @@ describe('Tile クラス', () => {
 describe('Component クラス', () => {
   test('順子の作成', () => {
     const tiles = [
-      new Tile('man' as any, 1),
-      new Tile('man' as any, 2),
-      new Tile('man' as any, 3)
+      createManTile(1),
+      createManTile(2),
+      createManTile(3)
     ];
     const sequence = Component.createSequence(tiles as [Tile, Tile, Tile]);
     expect(sequence.type).toBe('sequence');
@@ -140,9 +140,9 @@ describe('Component クラス', () => {
 
   test('刻子の作成', () => {
     const tiles = [
-      new Tile('pin' as any, 5),
-      new Tile('pin' as any, 5),
-      new Tile('pin' as any, 5)
+      createPinTile(5),
+      createPinTile(5),
+      createPinTile(5)
     ];
     const triplet = Component.createTriplet(tiles as [Tile, Tile, Tile]);
     expect(triplet.type).toBe('triplet');
@@ -151,8 +151,8 @@ describe('Component クラス', () => {
 
   test('対子の作成', () => {
     const tiles = [
-      new Tile('dragon' as any, 3),
-      new Tile('dragon' as any, 3)
+      createDragonTile('RED'),
+      createDragonTile('RED')
     ];
     const pair = Component.createPair(tiles as [Tile, Tile]);
     expect(pair.type).toBe('pair');
@@ -161,9 +161,9 @@ describe('Component クラス', () => {
 
   test('自動面子作成', () => {
     const sequenceTiles = [
-      new Tile('sou' as any, 7),
-      new Tile('sou' as any, 8),
-      new Tile('sou' as any, 9)
+      createSouTile(7),
+      createSouTile(8),
+      createSouTile(9)
     ];
     const meld = Component.fromTiles(sequenceTiles);
     expect(meld.type).toBe('sequence');
@@ -172,7 +172,7 @@ describe('Component クラス', () => {
 
 describe('MahjongScorer 基本機能', () => {
   let scorer: MahjongScorer;
-  let gameContext: any;
+  let gameContext: ReturnType<typeof createGameContext>;
 
   beforeEach(() => {
     scorer = new MahjongScorer();
@@ -229,7 +229,7 @@ describe('MahjongScorer 基本機能', () => {
 
 describe('点数計算システム', () => {
   let scorer: MahjongScorer;
-  let gameContext: any;
+  let gameContext: ReturnType<typeof createGameContext>;
 
   beforeEach(() => {
     scorer = new MahjongScorer();
