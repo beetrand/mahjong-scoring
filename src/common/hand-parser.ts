@@ -1,7 +1,8 @@
 // 手牌・副露の文字列解析システム
 
 import { Tile } from './tile';
-import type { OpenMeld, OpenMeldType, MeldFrom } from './types';
+import { Component } from './component';
+import type { OpenMeldType, MeldFrom } from './types';
 
 // 方向マーカーのマッピング
 const DIRECTION_MAP: Record<string, MeldFrom> = {
@@ -53,11 +54,11 @@ export class HandParser {
   }
 
   /**
-   * 副露表記の文字列を解析してOpenMeld配列を返す
-   * 例: "[777p+] <123s=> (1111m-)" -> OpenMeld[]
+   * 副露表記の文字列を解析してComponent配列を返す
+   * 例: "[777p+] <123s=> (1111m-)" -> Component[]
    */
-  static parseOpenMelds(meldStr: string): OpenMeld[] {
-    const melds: OpenMeld[] = [];
+  static parseOpenMelds(meldStr: string): Component[] {
+    const melds: Component[] = [];
     
     // 副露パターンを抽出: [牌+方向], <牌+方向>, (牌+方向)
     const meldPattern = /([\[<(])([^>\]\)]+)([\+=\-])([\]\)>])/g;
@@ -73,7 +74,6 @@ export class HandParser {
       
       // 牌の解析
       const tiles = this.parseHandString(tilesStr);
-      const tileStrings = tiles.map(tile => tile.toString());
       
       // 副露タイプを判定
       const type = BRACKET_TYPE_MAP[openBracket];
@@ -91,15 +91,36 @@ export class HandParser {
       this.validateMeldTiles(type, tiles);
       
       // 鳴いた牌を特定（簡略化：最初の牌とする）
-      const calledTile = tileStrings[0];
+      const calledTile = tiles[0];
       
-      melds.push({
-        tiles: tileStrings,
-        type,
-        from,
-        calledTile,
-        isConcealed: false
-      });
+      // ComponentタイプとMeldInfoを作成してComponentを生成
+      let componentType;
+      switch (type) {
+        case 'chi':
+          componentType = 'sequence' as const;
+          break;
+        case 'pon':
+          componentType = 'triplet' as const;
+          break;
+        case 'minkan':
+        case 'kakan':
+          componentType = 'quad' as const;
+          break;
+        default:
+          throw new Error(`Unknown meld type: ${type}`);
+      }
+      
+      const component = Component.create(
+        componentType,
+        tiles.map(t => t.index),
+        false, // 副露は明面子
+        {
+          from,
+          calledTile
+        }
+      );
+      
+      melds.push(component);
     }
     
     return melds;
@@ -109,7 +130,7 @@ export class HandParser {
    * 手牌文字列から門前牌と副露を分離して解析
    * 例: "123m456p11z [777p+] <234s=>" -> { concealed: "123m456p11z", melds: [...] }
    */
-  static parseHandWithMelds(handStr: string): { concealed: string, melds: OpenMeld[] } {
+  static parseHandWithMelds(handStr: string): { concealed: string, melds: Component[] } {
     // 副露部分を抽出
     const meldPattern = /([\[<(])([^>\]\)]+)([\+=\-])([\]\)>])/g;
     const melds = this.parseOpenMelds(handStr);
@@ -121,31 +142,34 @@ export class HandParser {
   }
 
   /**
-   * OpenMeldを文字列表記に変換
+   * Componentを文字列表記に変換
    */
-  static meldToString(meld: OpenMeld): string {
-    const tilesStr = meld.tiles.join('');
-    const directionChar = Object.entries(DIRECTION_MAP)
-      .find(([, dir]) => dir === meld.from)?.[0] || '+';
+  static componentToString(component: Component): string {
+    if (!component.meldInfo) {
+      throw new Error('Component must have meld info for string conversion');
+    }
     
-    switch (meld.type) {
-      case 'pon':
+    const tilesStr = component.tiles.map(tile => tile.toString()).join('');
+    const directionChar = Object.entries(DIRECTION_MAP)
+      .find(([, dir]) => dir === component.meldInfo!.from)?.[0] || '+';
+    
+    switch (component.type) {
+      case 'triplet':
         return `[${tilesStr}${directionChar}]`;
-      case 'chi':
+      case 'sequence':
         return `<${tilesStr}${directionChar}>`;
-      case 'minkan':
-      case 'kakan':
+      case 'quad':
         return `(${tilesStr}${directionChar})`;
       default:
-        throw new Error(`Unknown meld type: ${meld.type}`);
+        throw new Error(`Unknown component type for meld: ${component.type}`);
     }
   }
 
   /**
-   * OpenMeld配列を文字列表記に変換
+   * Component配列を文字列表記に変換
    */
-  static meldsToString(melds: OpenMeld[]): string {
-    return melds.map(meld => this.meldToString(meld)).join(' ');
+  static componentsToString(components: Component[]): string {
+    return components.map(component => this.componentToString(component)).join(' ');
   }
 
   // ===== Private Helper Methods =====

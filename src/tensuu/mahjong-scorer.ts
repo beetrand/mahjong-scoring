@@ -3,10 +3,11 @@
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
 import { HandParser } from '../common/hand-parser';
+import { Component } from '../common/component';
 import { ScoringResult } from './scoring';
 import { ShantenCalculator } from './shanten-calculator';
 import type { ShantenResult } from './shanten-calculator';
-import type { GameContext, BonusPoints, OpenMeld, HandAnalysisResult, HandState } from '../common/types';
+import type { GameContext, BonusPoints, HandAnalysisResult, HandState } from '../common/types';
 
 export class MahjongScorer {
   private shantenCalculator: ShantenCalculator;
@@ -125,7 +126,7 @@ export class MahjongScorer {
     options: {
       isTsumo?: boolean;
       isRiichi?: boolean;
-      openMelds?: OpenMeld[];
+      openMelds?: Component[];
       bonuses?: BonusPoints;
     } = {}
   ): {
@@ -141,8 +142,7 @@ export class MahjongScorer {
       drawnTile,
       isTsumo: options.isTsumo || false,
       gameContext,
-      isRiichi: options.isRiichi,
-      openMelds: options.openMelds
+      isRiichi: options.isRiichi
     });
     const analysis = this.analyzeHandState(hand);
     
@@ -218,7 +218,7 @@ export class MahjongScorer {
     gameContext: GameContext,
     options: {
       isRiichi?: boolean;
-      openMelds?: OpenMeld[];
+      openMelds?: Component[];
       bonuses?: BonusPoints;
     } = {}
   ): ScoringResult {
@@ -228,12 +228,16 @@ export class MahjongScorer {
       throw new Error(`Hand string must represent exactly 14 tiles, got ${tiles.length}`);
     }
 
-    const hand = Hand.fromString(tilesStr, {
+    // 副露表記がない場合の処理（互換性維持）
+    const handStrWithMelds = options.openMelds && options.openMelds.length > 0
+      ? `${tilesStr} ${options.openMelds.map(meld => HandParser.componentToString(meld)).join(' ')}`
+      : tilesStr;
+      
+    const hand = Hand.fromString(handStrWithMelds, {
       drawnTile,
       isTsumo,
       gameContext,
-      isRiichi: options.isRiichi || false,
-      openMelds: options.openMelds || []
+      isRiichi: options.isRiichi || false
     });
 
     // 上がり判定を最初に実行
@@ -259,7 +263,7 @@ export class MahjongScorer {
       bonuses?: BonusPoints;
     } = {}
   ): ScoringResult {
-    const hand = Hand.fromStringWithMelds(handStr, {
+    const hand = Hand.fromString(handStr, {
       drawnTile,
       isTsumo,
       gameContext,

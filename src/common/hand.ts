@@ -3,11 +3,12 @@
 import { Tile } from './tile';
 import { HandParser } from './hand-parser';
 import { TileCount } from './tile-count';
-import type { HandOptions, OpenMeld, GameContext } from './types';
+import { Component } from './component';
+import type { HandOptions, GameContext } from './types';
 
 export class Hand {
   public readonly tiles: Tile[];
-  public readonly openMelds: OpenMeld[];
+  public readonly openMelds: Component[];
   public readonly drawnTile: Tile;      // ツモ牌（和了時は和了牌、非和了時も意味を持つ）
   public readonly isTsumo: boolean;
   public readonly isRiichi: boolean;
@@ -16,19 +17,13 @@ export class Hand {
   // シャンテン計算用牌種別カウント（TileCountオブジェクト）
   public readonly tileCount: TileCount;
 
-  constructor(tiles: Tile[], options: HandOptions) {
+  constructor(tiles: Tile[], openMelds: Component[], options: HandOptions) {
     this.tiles = tiles;
-    this.openMelds = options.openMelds || [];
+    this.openMelds = openMelds;
     this.drawnTile = Tile.fromString(options.drawnTile);
     this.isTsumo = options.isTsumo;
     this.isRiichi = options.isRiichi || false;
     this.gameContext = options.gameContext;
-    
-    // 手牌数の検証（副露考慮）
-    const expectedTileCount = this.calculateExpectedTileCount();
-    if (this.tiles.length !== expectedTileCount && this.tiles.length !== expectedTileCount - 1) {
-      throw new Error(`Invalid hand size: expected ${expectedTileCount} or ${expectedTileCount - 1} tiles, got ${this.tiles.length}`);
-    }
     
     // 牌種別カウントを事前計算
     this.tileCount = this.createTileCount();
@@ -45,9 +40,9 @@ export class Hand {
     // カンは4枚だが3枚を差し引く（嶺上牌で補充されるため）
     let deduction = 0;
     for (const meld of this.openMelds) {
-      if (meld.type === 'chi' || meld.type === 'pon') {
+      if (meld.type === 'sequence' || meld.type === 'triplet') {
         deduction += 3;
-      } else if (meld.type === 'minkan' || meld.type === 'kakan') {
+      } else if (meld.type === 'quad') {
         deduction += 3; // カンも3枚分減らす（嶺上牌で補充）
       }
     }
@@ -58,7 +53,7 @@ export class Hand {
     const allTiles = [...this.tiles];
     // 副露面子の牌も含める
     for (const meld of this.openMelds) {
-      allTiles.push(...meld.tiles.map(tileStr => Tile.fromString(tileStr)));
+      allTiles.push(...meld.tiles);
     }
     return allTiles;
   }
@@ -74,7 +69,7 @@ export class Hand {
   public getTotalTileCount(): number {
     // 門前牌 + 副露牌の総数
     const meldTiles = this.openMelds.reduce((total, meld) => {
-      return total + (meld.type === 'minkan' || meld.type === 'kakan' ? 4 : 3);
+      return total + (meld.type === 'quad' ? 4 : 3);
     }, 0);
     return this.tiles.length + meldTiles;
   }
@@ -165,28 +160,19 @@ export class Hand {
   }
 
 
-  public static create(tiles: Tile[], options: HandOptions): Hand {
-    return new Hand(tiles, options);
+  public static create(tiles: Tile[], openMelds: Component[], options: HandOptions): Hand {
+    return new Hand(tiles, openMelds, options);
   }
 
-  public static fromString(tilesStr: string, options: HandOptions): Hand {
-    const tiles = HandParser.parseHandString(tilesStr);
-    return new Hand(tiles, options);
-  }
-
-  
   /**
-   * 副露表記を含む文字列から手牌を作成
-   * 例: "123m456p11z [777p+] <234s=>"
+   * 文字列から手牌を作成（副露表記対応）
+   * 例: "123m456p789s11z" または "123m456p11z [777p+] <234s=>"
    */
-  public static fromStringWithMelds(handStr: string, options: Omit<HandOptions, 'openMelds'>): Hand {
+  public static fromString(handStr: string, options: HandOptions): Hand {
     const { concealed, melds } = HandParser.parseHandWithMelds(handStr);
     const tiles = HandParser.parseHandString(concealed);
     
-    return new Hand(tiles, {
-      ...options,
-      openMelds: melds
-    });
+    return new Hand(tiles, melds, options);
   }
 
 }

@@ -26,7 +26,6 @@ export function createMockHandOptions(overrides: Partial<HandOptions> = {}): Han
     isTsumo: true,
     isRiichi: false,
     gameContext: createMockGameContext(),
-    openMelds: [],
     ...overrides
   };
 }
@@ -114,7 +113,7 @@ export function isHandOptions(obj: unknown): obj is HandOptions {
     typeof (obj as HandOptions).drawnTile === 'string' &&
     typeof (obj as HandOptions).isTsumo === 'boolean' &&
     isGameContext((obj as HandOptions).gameContext) &&
-    ((obj as HandOptions).openMelds === undefined || Array.isArray((obj as HandOptions).openMelds));
+    true; // HandOptions no longer has openMelds property
 }
 
 /**

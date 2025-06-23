@@ -115,18 +115,8 @@ export interface BonusPoints {
   honbaSticks: number;   // 本場
 }
 
-// 副露面子インターフェース
-export interface OpenMeld {
-  tiles: string[];              // 面子を構成する牌
-  type: OpenMeldType;           // 副露の種類
-  from: MeldFrom;               // 鳴いた相手
-  calledTile: string;           // 鳴いた牌
-  isConcealed: false;           // 副露は必ず明面子
-}
-
-// 手牌オプション
+// 手牌オプション（Component配列を使用）
 export interface HandOptions {
-  openMelds?: OpenMeld[];
   drawnTile: string;        // ツモ牌（和了時は和了牌、非和了時も意味を持つ）
   isTsumo: boolean;
   isRiichi?: boolean;

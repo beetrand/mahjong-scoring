@@ -108,7 +108,7 @@ export class ShantenValidator {
       const drawnTile = tiles[tiles.length - 1];
       
       // Handオブジェクトを作成
-      const hand = new Hand(tiles, {
+      const hand = new Hand(tiles, [], {
         drawnTile: drawnTile.toString(),
         isTsumo: true,
         gameContext: this.gameContext

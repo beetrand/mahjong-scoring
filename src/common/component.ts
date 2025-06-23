@@ -2,7 +2,7 @@
 
 import { Tile } from './tile';
 import { indexToTileName } from './tile-constants';
-import type { FuContext, WaitType } from './types';
+import type { MeldFrom } from './types';
 
 export const ComponentType = {
   SEQUENCE: 'sequence',    // 順子 (123)
@@ -16,6 +16,14 @@ export const ComponentType = {
 export type ComponentType = typeof ComponentType[keyof typeof ComponentType];
 
 /**
+ * 副露情報を保持するインターフェース
+ */
+export interface MeldInfo {
+  from: MeldFrom;        // 鳴いた相手
+  calledTile: Tile;      // 鳴いた牌
+}
+
+/**
  * 麻雀の面子・搭子・孤立牌を統一表現するクラス
  * バックトラッキングでの効率的な操作をサポート
  */
@@ -23,11 +31,18 @@ export class Component {
   public readonly tiles: Tile[];
   public readonly type: ComponentType;
   public readonly isConcealed: boolean;
+  public readonly meldInfo?: MeldInfo;  // 副露情報（副露の場合のみ）
 
-  constructor(tiles: Tile[], type: ComponentType, isConcealed: boolean = true) {
+  constructor(tiles: Tile[], type: ComponentType, isConcealed: boolean = true, meldInfo?: MeldInfo) {
     this.tiles = [...tiles].sort(Tile.compare);
     this.type = type;
     this.isConcealed = isConcealed;
+    this.meldInfo = meldInfo;
+    
+    // 副露の場合は必ずmeldInfoが必要
+    if (!isConcealed && !meldInfo) {
+      throw new Error('Open meld must have meld info');
+    }
     
     this.validateComponent();
   }
@@ -134,48 +149,6 @@ export class Component {
     }
   }
 
-  // 符計算（面子のみ）
-  public getFu(context: FuContext): number {
-    if (!this.isMentsu()) {
-      return 0; // 搭子・孤立牌は符なし
-    }
-
-    const tile = this.getTileValue();
-    
-    switch (this.type) {
-      case ComponentType.SEQUENCE:
-        return 0; // 順子は0符
-        
-      case ComponentType.TRIPLET:
-        if (tile.isTerminal() || tile.isHonor()) {
-          return this.isConcealed ? 8 : 4;
-        } else {
-          return this.isConcealed ? 4 : 2;
-        }
-        
-      case ComponentType.QUAD:
-        if (tile.isTerminal() || tile.isHonor()) {
-          return this.isConcealed ? 32 : 16;
-        } else {
-          return this.isConcealed ? 16 : 8;
-        }
-        
-      case ComponentType.PAIR:
-        if (tile.suit === 'wind') {
-          const windValue = tile.value as 1 | 2 | 3 | 4;
-          if (windValue === context.gameContext.roundWind || windValue === context.gameContext.playerWind) {
-            return 2;
-          }
-        }
-        if (tile.suit === 'dragon') {
-          return 2;
-        }
-        return 0;
-        
-      default:
-        return 0;
-    }
-  }
 
   // 代表牌を取得
   public getTileValue(): Tile {
@@ -218,9 +191,9 @@ export class Component {
   }
 
   // 汎用的な静的ファクトリメソッド
-  public static create(type: ComponentType, indices: number[], isConcealed: boolean = true): Component {
+  public static create(type: ComponentType, indices: number[], isConcealed: boolean = true, meldInfo?: MeldInfo): Component {
     const tiles = indices.map(index => Component.createTileFromIndex(index));
-    return new Component(tiles, type, isConcealed);
+    return new Component(tiles, type, isConcealed, meldInfo);
   }
 
   // インデックスからTileオブジェクトを作成（静的メソッド）
@@ -229,16 +202,16 @@ export class Component {
   }
 
   // 既存の型特化ファクトリメソッド（互換性のため残す）
-  public static createSequence(tiles: [Tile, Tile, Tile], isConcealed: boolean = true): Component {
-    return new Component(tiles, ComponentType.SEQUENCE, isConcealed);
+  public static createSequence(tiles: [Tile, Tile, Tile], isConcealed: boolean = true, meldInfo?: MeldInfo): Component {
+    return new Component(tiles, ComponentType.SEQUENCE, isConcealed, meldInfo);
   }
 
-  public static createTriplet(tiles: [Tile, Tile, Tile], isConcealed: boolean = true): Component {
-    return new Component(tiles, ComponentType.TRIPLET, isConcealed);
+  public static createTriplet(tiles: [Tile, Tile, Tile], isConcealed: boolean = true, meldInfo?: MeldInfo): Component {
+    return new Component(tiles, ComponentType.TRIPLET, isConcealed, meldInfo);
   }
 
-  public static createQuad(tiles: [Tile, Tile, Tile, Tile], isConcealed: boolean = true): Component {
-    return new Component(tiles, ComponentType.QUAD, isConcealed);
+  public static createQuad(tiles: [Tile, Tile, Tile, Tile], isConcealed: boolean = true, meldInfo?: MeldInfo): Component {
+    return new Component(tiles, ComponentType.QUAD, isConcealed, meldInfo);
   }
 
   public static createPair(tiles: [Tile, Tile]): Component {
@@ -252,6 +225,7 @@ export class Component {
   public static createIsolated(tile: Tile): Component {
     return new Component([tile], ComponentType.ISOLATED, true);
   }
+
 
   public static fromTiles(tiles: Tile[], isConcealed: boolean = true): Component {
     if (tiles.length === 0) {
@@ -374,12 +348,12 @@ export class Component {
 }
 
 /**
- * ComponentCombination - MentsuCombinationの代替
+ * ComponentCombination - 完全な和了形を表現
+ * シンプルなComponent配列と和了牌の情報のみ
  */
 export interface ComponentCombination {
-  melds: Component[];
-  pair: Component;
-  waitType: WaitType;
+  components: Component[];  // 全ての面子と対子（門前・副露の区別はComponent.isConcealedで管理）
+  winningTile: Tile;       // 和了牌
 }
 
 /**

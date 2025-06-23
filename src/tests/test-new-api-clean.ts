@@ -43,7 +43,7 @@ try {
 // Test 2: 1副露・テンパイ（新API）
 console.log('\n2. 1副露・テンパイ（新API）');
 try {
-  const hand1 = Hand.fromStringWithMelds('123m456p789s11z [777p+]', {
+  const hand1 = Hand.fromString('123m456p789s11z [777p+]', {
     drawnTile: '1z',
     isTsumo: true,
     gameContext

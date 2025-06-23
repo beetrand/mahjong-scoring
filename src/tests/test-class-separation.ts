@@ -24,11 +24,10 @@ function createTestHandObject(tileStrings: string[]): Hand {
     hasRedDora: false
   };
   
-  return new Hand(tiles, {
+  return new Hand(tiles, [], {
     drawnTile: tiles[tiles.length - 1].toString(),
     isTsumo: true,
-    gameContext: mockGameContext,
-    openMelds: []
+    gameContext: mockGameContext
   });
 }
 

@@ -87,7 +87,7 @@ export function analyzeMeldHand(handStr: string, options: {
   gameContext: any;
   isRiichi?: boolean;
 }) {
-  const hand = Hand.fromStringWithMelds(handStr, options);
+  const hand = Hand.fromString(handStr, options);
   const scorer = new MahjongScorer();
   return scorer.analyzeHandState(hand);
 }

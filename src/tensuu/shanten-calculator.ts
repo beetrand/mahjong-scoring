@@ -99,8 +99,6 @@ export class ShantenCalculator {
 
     // 全タイプのシャンテン数を計算
     const regularShantenResult = this.calculateRegularShanten(hand, true, true);
-
-
     const chitoitsuShanten = this.calculateChitoitsuShanten(hand);
     const kokushiShanten = this.calculateKokushiShanten(hand);
 
@@ -147,8 +145,6 @@ export class ShantenCalculator {
     const tiles = hand.getTehai();
     return this.usefulTilesCalculator.calculateUsefulTiles(tiles, targetHandType);
   }
-
-
 
   /**
    * Hand オブジェクトが和了形かチェック

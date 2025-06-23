@@ -1,8 +1,7 @@
 // 点数計算システム
 
 import type { ComponentCombination } from '../common/component';
-import { Component } from '../common/component';
-import { WaitType } from '../common/types';
+import { Component, ComponentType } from '../common/component';
 import type { YakuResult } from './yaku';
 import type { FuContext, BonusPoints } from '../common/types';
 
@@ -46,9 +45,18 @@ export type LimitHandType = typeof LimitHandType[keyof typeof LimitHandType];
 export class FuCalculator {
   public calculateFu(combination: ComponentCombination, context: FuContext): FuResult {
     const baseFu = this.getBaseFu();
-    const meldsFu = this.getComponentsFu(combination.melds, context);
-    const pairFu = this.getPairFu(combination.pair, context);
-    const waitFu = this.getWaitFu(combination.waitType);
+    
+    // 面子と対子を分離
+    const melds = combination.components.filter(c => c.isCompleteMentsu());
+    const pair = combination.components.find(c => c.type === ComponentType.PAIR);
+    
+    if (!pair) {
+      throw new Error('Pair not found in ComponentCombination');
+    }
+    
+    const meldsFu = this.getComponentsFu(melds, context);
+    const pairFu = this.getPairFu(pair, context);
+    const waitFu = 0; // TODO: 待ちタイプは別途計算が必要
     const winningMethodFu = this.getWinningMethodFu(context);
     const concealedFu = this.getConcealedFu(context);
 
@@ -73,25 +81,60 @@ export class FuCalculator {
   }
 
   private getComponentsFu(melds: Component[], context: FuContext): number {
-    return melds.reduce((total, meld) => total + meld.getFu(context), 0);
+    return melds.reduce((total, meld) => total + this.getComponentFu(meld, context), 0);
   }
 
   private getPairFu(pair: Component, context: FuContext): number {
-    return pair.getFu(context);
+    return this.getComponentFu(pair, context);
   }
 
-  private getWaitFu(waitType: WaitType): number {
-    switch (waitType) {
-      case 'kanchan':  // 嵌張待ち
-      case 'penchan':  // 辺張待ち
-      case 'tanki':    // 単騎待ち
-        return 2;
-      case 'ryanmen':  // 両面待ち
-      case 'shanpon':  // 双碰待ち
+  /**
+   * Componentの符を計算（Componentから移動）
+   */
+  private getComponentFu(component: Component, context: FuContext): number {
+    if (!component.isMentsu()) {
+      return 0; // 搭子・孤立牌は符なし
+    }
+
+    const tile = component.getTileValue();
+    
+    switch (component.type) {
+      case 'sequence':
+        return 0; // 順子は0符
+        
+      case 'triplet':
+        if (tile.isTerminal() || tile.isHonor()) {
+          return component.isConcealed ? 8 : 4;
+        } else {
+          return component.isConcealed ? 4 : 2;
+        }
+        
+      case 'quad':
+        if (tile.isTerminal() || tile.isHonor()) {
+          return component.isConcealed ? 32 : 16;
+        } else {
+          return component.isConcealed ? 16 : 8;
+        }
+        
+      case 'pair':
+        if (tile.suit === 'wind') {
+          const windValue = tile.value as 1 | 2 | 3 | 4;
+          if (windValue === context.gameContext.roundWind || windValue === context.gameContext.playerWind) {
+            return 2;
+          }
+        }
+        if (tile.suit === 'dragon') {
+          return 2;
+        }
+        return 0;
+        
       default:
         return 0;
     }
   }
+
+  // TODO: 待ちタイプ判定が必要な場合は別途実装
+  // private getWaitFu(waitType: WaitType): number { ... }
 
   private getWinningMethodFu(context: FuContext): number {
     if (context.isTsumo) {
