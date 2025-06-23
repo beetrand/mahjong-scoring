@@ -2,7 +2,7 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
-import { Mentsu } from '../common/mentsu';
+import { Component } from '../common/component';
 import { MahjongScorer, createGameContext } from '../index';
 
 describe('Tile クラス', () => {
@@ -124,14 +124,14 @@ describe('Tile クラス', () => {
   });
 });
 
-describe('Mentsu クラス', () => {
+describe('Component クラス', () => {
   test('順子の作成', () => {
     const tiles = [
       new Tile('man' as any, 1),
       new Tile('man' as any, 2),
       new Tile('man' as any, 3)
     ];
-    const sequence = Mentsu.createSequence(tiles as [Tile, Tile, Tile]);
+    const sequence = Component.createSequence(tiles as [Tile, Tile, Tile]);
     expect(sequence.type).toBe('sequence');
     expect(sequence.tiles).toHaveLength(3);
     expect(sequence.isSimple()).toBe(false); // 1mが含まれるため
@@ -143,7 +143,7 @@ describe('Mentsu クラス', () => {
       new Tile('pin' as any, 5),
       new Tile('pin' as any, 5)
     ];
-    const triplet = Mentsu.createTriplet(tiles as [Tile, Tile, Tile]);
+    const triplet = Component.createTriplet(tiles as [Tile, Tile, Tile]);
     expect(triplet.type).toBe('triplet');
     expect(triplet.isSimple()).toBe(true);
   });
@@ -153,7 +153,7 @@ describe('Mentsu クラス', () => {
       new Tile('dragon' as any, 3),
       new Tile('dragon' as any, 3)
     ];
-    const pair = Mentsu.createPair(tiles as [Tile, Tile]);
+    const pair = Component.createPair(tiles as [Tile, Tile]);
     expect(pair.type).toBe('pair');
     expect(pair.isTerminalOrHonor()).toBe(true);
   });
@@ -164,7 +164,7 @@ describe('Mentsu クラス', () => {
       new Tile('sou' as any, 8),
       new Tile('sou' as any, 9)
     ];
-    const meld = Mentsu.fromTiles(sequenceTiles);
+    const meld = Component.fromTiles(sequenceTiles);
     expect(meld.type).toBe('sequence');
   });
 });

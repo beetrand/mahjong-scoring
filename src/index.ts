@@ -1,7 +1,8 @@
 // 麻雀点数計算システム メインエクスポート
 
 export { Tile } from './common/tile';
-export { Mentsu } from './common/mentsu';
+export { Component, ComponentStack, ComponentType } from './common/component';
+export type { ComponentCombination } from './common/component';
 export { ShantenCalculator } from './tensuu/shanten-calculator';
 export { UsefulTilesCalculator } from './tensuu/useful-tiles-calculator';
 export { 
@@ -41,7 +42,6 @@ export {
 } from './common/types';
 
 // 型のエクスポート
-export type { MentsuCombination } from './common/mentsu';
 export type { ShantenResult } from './tensuu/shanten-calculator';
 export type { YakuResult } from './tensuu/yaku';
 export type { 

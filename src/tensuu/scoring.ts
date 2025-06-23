@@ -1,8 +1,8 @@
 // 点数計算システム
 
-import { Mentsu } from '../common/mentsu';
+import type { ComponentCombination } from '../common/component';
+import { Component } from '../common/component';
 import { WaitType } from '../common/types';
-import type { MentsuCombination } from '../common/mentsu';
 import type { YakuResult } from './yaku';
 import type { FuContext, BonusPoints } from '../common/types';
 
@@ -44,9 +44,9 @@ export const LimitHandType = {
 export type LimitHandType = typeof LimitHandType[keyof typeof LimitHandType];
 
 export class FuCalculator {
-  public calculateFu(combination: MentsuCombination, context: FuContext): FuResult {
+  public calculateFu(combination: ComponentCombination, context: FuContext): FuResult {
     const baseFu = this.getBaseFu();
-    const meldsFu = this.getMentsusFu(combination.melds, context);
+    const meldsFu = this.getComponentsFu(combination.melds, context);
     const pairFu = this.getPairFu(combination.pair, context);
     const waitFu = this.getWaitFu(combination.waitType);
     const winningMethodFu = this.getWinningMethodFu(context);
@@ -72,11 +72,11 @@ export class FuCalculator {
     return 20;
   }
 
-  private getMentsusFu(melds: Mentsu[], context: FuContext): number {
+  private getComponentsFu(melds: Component[], context: FuContext): number {
     return melds.reduce((total, meld) => total + meld.getFu(context), 0);
   }
 
-  private getPairFu(pair: Mentsu, context: FuContext): number {
+  private getPairFu(pair: Component, context: FuContext): number {
     return pair.getFu(context);
   }
 
@@ -250,16 +250,16 @@ export class PaymentCalculator {
 
 // 最終結果クラス
 export class ScoringResult {
-  public readonly handCombinations: MentsuCombination[];
-  public readonly bestCombination: MentsuCombination;
+  public readonly handCombinations: ComponentCombination[];
+  public readonly bestCombination: ComponentCombination;
   public readonly yakuResults: YakuResult[];
   public readonly fuResult: FuResult;
   public readonly scoreResult: ScoreResult;
   public readonly paymentResult: PaymentResult;
 
   constructor(
-    handCombinations: MentsuCombination[],
-    bestCombination: MentsuCombination,
+    handCombinations: ComponentCombination[],
+    bestCombination: ComponentCombination,
     yakuResults: YakuResult[],
     fuResult: FuResult,
     scoreResult: ScoreResult,
@@ -302,8 +302,8 @@ export class ScoringResult {
   }
 
   public static create(
-    handCombinations: MentsuCombination[],
-    bestCombination: MentsuCombination,
+    handCombinations: ComponentCombination[],
+    bestCombination: ComponentCombination,
     yakuResults: YakuResult[],
     fuResult: FuResult,
     scoreResult: ScoreResult,

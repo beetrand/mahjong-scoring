@@ -5,9 +5,6 @@ import { MahjongScorer, createGameContext, Tile, Hand } from './index';
 function main() {
   console.log('=== 麻雀点数計算システム 使用例 ===\n');
 
-
-  const hand = Tile.parseHandString("123456m789s333p77z");
-  console.log(hand.toString());
   const scorer = new MahjongScorer();
   const gameContext = createGameContext(1, 1); // 東場、東家
 
@@ -70,33 +67,21 @@ function main() {
 
   // 例4: シャンテン数計算
   console.log('【例4】シャンテン数計算');
-  const shantenTiles = '123m456p78s11223z'; // 13枚の手牌
-  const shantenResult = scorer.calculateShantenFromString(shantenTiles, '3z', gameContext);
-  
-  console.log(`手牌: ${shantenTiles}`);
-  console.log(`通常手シャンテン: ${shantenResult.regularShanten}`);
-  console.log(`七対子シャンテン: ${shantenResult.chitoitsuShanten}`);
-  console.log(`国士シャンテン: ${shantenResult.kokushiShanten}`);
-  console.log(`最小シャンテン: ${shantenResult.shanten}`);
-  console.log(`最適な手の形: ${shantenResult.handType}\n`);
-
-  // 例4: シャンテン数計算
-  console.log('【例4-2】シャンテン数計算');
-  const testhands: {hai: string, tsumo: string}[]= 
-  [
-    {hai:"123m89m1289p1289s1z",tsumo:"9m"},
-    //{hai:"2345666m123p4566s",tsumo:"6s"},
-    {hai:"223456m123p4568s",tsumo:"6s"},
+  const testHands = [
+    { hai: "123m456p78s11223z", tsumo: "3z" },
+    { hai: "123m89m1289p1289s1z", tsumo: "9m" },
+    { hai: "223456m123p4568s", tsumo: "6s" }
   ];
-  for(let testhand of testhands){
-    const shantenResult2 = scorer.calculateShantenFromString(testhand.hai, testhand.tsumo, gameContext);
-      console.log(`手牌: ${testhand.hai}`);
-      console.log(`通常手シャンテン: ${shantenResult2.regularShanten}`);
-      console.log(`七対子シャンテン: ${shantenResult2.chitoitsuShanten}`);
-      console.log(`国士シャンテン: ${shantenResult2.kokushiShanten}`);
-      console.log(`最小シャンテン: ${shantenResult2.shanten}`);
-      console.log(`最適な手の形: ${shantenResult2.handType}\n`);
-  }
+  
+  testHands.forEach((testHand, index) => {
+    const shantenResult = scorer.calculateShantenFromString(testHand.hai, testHand.tsumo, gameContext);
+    console.log(`手牌${index + 1}: ${testHand.hai}`);
+    console.log(`通常手シャンテン: ${shantenResult.regularShanten}`);
+    console.log(`七対子シャンテン: ${shantenResult.chitoitsuShanten}`);
+    console.log(`国士シャンテン: ${shantenResult.kokushiShanten}`);
+    console.log(`最小シャンテン: ${shantenResult.shanten}`);
+    console.log(`最適な手の形: ${shantenResult.handType}\n`);
+  });
 
   // 例5: 手牌状態分析
   console.log('【例5】手牌状態分析');
@@ -139,6 +124,12 @@ function main() {
 
   // 例7: 牌の基本操作
   console.log('【例7】牌の基本操作');
+  demonstrateTileOperations();
+
+  console.log('=== 使用例終了 ===');
+}
+
+function demonstrateTileOperations() {
   const tile1 = Tile.fromString('5pr'); // 赤五筒
   const tile2 = new Tile('wind' as any, 1); // 東
   
@@ -148,8 +139,6 @@ function main() {
   const handTiles = Tile.parseHandString('123m456p789s東東');
   console.log(`手牌解析: ${handTiles.map(t => t.toString()).join('')}`);
   console.log(`牌数: ${handTiles.length}枚\n`);
-
-  console.log('=== 使用例終了 ===');
 }
 
 // 実行

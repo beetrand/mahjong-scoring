@@ -1,7 +1,8 @@
 // 役判定システム
 
 import { Tile } from '../common/tile';
-import type { MentsuCombination } from '../common/mentsu';
+import type { ComponentCombination } from '../common/component';
+import { Component } from '../common/component';
 import type { YakuContext } from '../common/types';
 
 export interface YakuResult {
@@ -16,7 +17,7 @@ export abstract class Yaku {
   public abstract readonly hanValue: number;
   public abstract readonly isYakuman: boolean;
 
-  public abstract isApplicable(combination: MentsuCombination, context: YakuContext): boolean;
+  public abstract isApplicable(combination: ComponentCombination, context: YakuContext): boolean;
   
   public suppressedBy(): string[] {
     return [];
@@ -33,7 +34,7 @@ export class RiichiYaku extends Yaku {
   public readonly hanValue = 1;
   public readonly isYakuman = false;
 
-  public isApplicable(_combination: MentsuCombination, context: YakuContext): boolean {
+  public isApplicable(_combination: ComponentCombination, context: YakuContext): boolean {
     return context.isRiichi;
   }
 }
@@ -43,7 +44,7 @@ export class TsumoYaku extends Yaku {
   public readonly hanValue = 1;
   public readonly isYakuman = false;
 
-  public isApplicable(_combination: MentsuCombination, context: YakuContext): boolean {
+  public isApplicable(_combination: ComponentCombination, context: YakuContext): boolean {
     return context.isTsumo && context.isOpenHand === false;
   }
 }
@@ -53,7 +54,7 @@ export class PinfuYaku extends Yaku {
   public readonly hanValue = 1;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, context: YakuContext): boolean {
+  public isApplicable(combination: ComponentCombination, context: YakuContext): boolean {
     if (context.isOpenHand) return false;
     
     // 4面子が全て順子
@@ -76,9 +77,9 @@ export class TanyaoYaku extends Yaku {
   public readonly hanValue = 1;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     const allTiles = [
-      ...combination.melds.flatMap(meld => meld.tiles),
+      ...combination.melds.flatMap((meld: Component) => meld.tiles),
       ...combination.pair.tiles
     ];
 
@@ -92,7 +93,7 @@ export class YakuhaiYaku extends Yaku {
   public readonly hanValue = 1;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, context: YakuContext): boolean {
+  public isApplicable(combination: ComponentCombination, context: YakuContext): boolean {
     return combination.melds.some(meld => 
       meld.type === 'triplet' && this.isYakuhaiTile(meld.getTileValue(), context)
     ) || combination.pair.isValuePair();
@@ -114,9 +115,9 @@ export class ChitoitsuYaku extends Yaku {
   public readonly hanValue = 2;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     return combination.melds.length === 6 && 
-           combination.melds.every(meld => meld.type === 'pair');
+           combination.melds.every((meld: Component) => meld.type === 'pair');
   }
 }
 
@@ -125,8 +126,8 @@ export class IttsuYaku extends Yaku {
   public readonly hanValue = 2;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
-    const sequences = combination.melds.filter(meld => meld.type === 'sequence');
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
+    const sequences = combination.melds.filter((meld: Component) => meld.type === 'sequence');
     
     for (const suit of ['man', 'pin', 'sou'] as const) {
       const suitSequences = sequences.filter(seq => seq.getTileValue().suit === suit);
@@ -155,9 +156,9 @@ export class ToitoiYaku extends Yaku {
   public readonly hanValue = 2;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     // 4つの面子が全て刻子または槓子
-    const tripletOrQuads = combination.melds.filter(meld => 
+    const tripletOrQuads = combination.melds.filter((meld: Component) => 
       meld.type === 'triplet' || meld.type === 'quad'
     );
     
@@ -170,14 +171,14 @@ export class SanshokudoujunYaku extends Yaku {
   public readonly hanValue = 2;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
-    const sequences = combination.melds.filter(meld => meld.type === 'sequence');
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
+    const sequences = combination.melds.filter((meld: Component) => meld.type === 'sequence');
     
     // 同じ数字の順子が3色にあるかチェック
     for (let value = 1; value <= 7; value++) {
       const suits = ['man', 'pin', 'sou'] as const;
       const foundSuits = suits.filter(suit => 
-        sequences.some(seq => {
+        sequences.some((seq: Component) => {
           const firstTile = seq.getTileValue();
           return firstTile.suit === suit && firstTile.value === value;
         })
@@ -202,8 +203,8 @@ export class SanshokudoukouYaku extends Yaku {
   public readonly hanValue = 2;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
-    const triplets = combination.melds.filter(meld => 
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
+    const triplets = combination.melds.filter((meld: Component) => 
       meld.type === 'triplet' || meld.type === 'quad'
     );
     
@@ -231,9 +232,9 @@ export class HonroutouYaku extends Yaku {
   public readonly hanValue = 2;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     const allTiles = [
-      ...combination.melds.flatMap(meld => meld.tiles),
+      ...combination.melds.flatMap((meld: Component) => meld.tiles),
       ...combination.pair.tiles
     ];
 
@@ -251,8 +252,8 @@ export class SanankoYaku extends Yaku {
   public readonly hanValue = 2;
   public readonly isYakuman = false;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
-    const concealedTriplets = combination.melds.filter(meld => 
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
+    const concealedTriplets = combination.melds.filter((meld: Component) => 
       (meld.type === 'triplet' || meld.type === 'quad') && meld.isConcealed
     );
     
@@ -266,7 +267,7 @@ export class KokushimusouYaku extends Yaku {
   public readonly hanValue = 13;
   public readonly isYakuman = true;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
     // 国士無双は特殊な形なので、combination.meldsが空
     if (combination.melds.length !== 0) return false;
     
@@ -288,8 +289,8 @@ export class SuuankoYaku extends Yaku {
   public readonly hanValue = 13;
   public readonly isYakuman = true;
 
-  public isApplicable(combination: MentsuCombination, context: YakuContext): boolean {
-    const concealedTriplets = combination.melds.filter(meld => 
+  public isApplicable(combination: ComponentCombination, context: YakuContext): boolean {
+    const concealedTriplets = combination.melds.filter((meld: Component) => 
       (meld.type === 'triplet' || meld.type === 'quad') && meld.isConcealed
     );
     
@@ -302,8 +303,8 @@ export class DaisangenYaku extends Yaku {
   public readonly hanValue = 13;
   public readonly isYakuman = true;
 
-  public isApplicable(combination: MentsuCombination, _context: YakuContext): boolean {
-    const dragonTriplets = combination.melds.filter(meld => 
+  public isApplicable(combination: ComponentCombination, _context: YakuContext): boolean {
+    const dragonTriplets = combination.melds.filter((meld: Component) => 
       (meld.type === 'triplet' || meld.type === 'quad') && 
       meld.getTileValue().isDragon()
     );
@@ -337,7 +338,7 @@ export class YakuDetector {
     ];
   }
 
-  public detectYaku(combination: MentsuCombination, context: YakuContext): YakuResult[] {
+  public detectYaku(combination: ComponentCombination, context: YakuContext): YakuResult[] {
     const results: YakuResult[] = [];
     
     for (const yaku of this.yakuList) {

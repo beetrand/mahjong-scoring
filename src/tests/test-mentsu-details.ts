@@ -2,7 +2,7 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
-import { ShantenCalculator, MentsuType } from '../tensuu/shanten-calculator';
+import { ShantenCalculator } from '../tensuu/shanten-calculator';
 import { indexToTileName } from '../common/tile-constants';
 
 // テスト用のHandオブジェクトを作成
@@ -128,11 +128,8 @@ function testMentsuDetails() {
         console.log(`\n  パターン ${index + 1}:`);
         console.log(`    面子数: ${detail.mentsuList.length}`);
         
-        detail.mentsuList.forEach((mentsu, mentsuIndex) => {
-          const tileNames = mentsu.tiles.map(indexToTileName).join('');
-          const typeLabel = mentsu.type === MentsuType.KOUTSU ? '刻子' : 
-                          mentsu.type === MentsuType.SHUNTSU ? '順子' : '対子';
-          console.log(`    面子${mentsuIndex + 1}: ${typeLabel}(${tileNames})`);
+        detail.mentsuList.forEach((component, mentsuIndex) => {
+          console.log(`    面子${mentsuIndex + 1}: ${component.toString()}`);
         });
         
         // 残り牌の表示
