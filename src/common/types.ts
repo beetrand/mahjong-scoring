@@ -55,11 +55,13 @@ export interface ShantenConfig {
   enableKokushi?: boolean;      // 国士無双計算を有効にするか（デフォルト: true）
 }
 
-// シャンテン計算オプション
-export interface ShantenOptions {
-  includeUsefulTiles?: boolean;        // 有効牌を計算に含めるか（デフォルト: false）
-  includeWaitType?: boolean;           // 待ちの形を含めるか（デフォルト: false）
-  handTypes?: HandType[];              // 計算対象の手牌タイプ（未指定時は全て）
+// シャンテン分析結果（通常手のみ面子分解情報を含む）
+export interface ShantenAnalysisResult {
+  readonly shanten: number;
+  readonly handType: HandType;
+  
+  // 通常手の場合のみ面子分解結果を含む
+  readonly optimalStates?: import('../tensuu/shanten-calculator').BacktrackState[];
 }
 
 export const Wind = {

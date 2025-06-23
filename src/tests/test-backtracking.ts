@@ -91,8 +91,8 @@ function testBacktracking() {
     
     const hand = createTestHand(testCase.tiles);
     
-    // 通常手のシャンテン数を計算（有効牌計算なし）
-    const shantenResult = calculator.calculateShanten(hand, {includeUsefulTiles: false, includeWaitType: false});
+    // 通常手のシャンテン数を計算
+    const shantenResult = calculator.calculateShanten(hand);
     const shanten = shantenResult.shanten;
     const regularShanten = calculator.calculateRegularShanten(hand).shanten;
     
@@ -102,16 +102,15 @@ function testBacktracking() {
     console.log(`結果: ${shanten === testCase.expectedShanten ? '✓ 成功' : '✗ 失敗'}`);
     
     // 詳細版のテスト（デバッグログ付き）
-    const detailedResult = calculator.calculateRegularShanten(hand, true, testCase.name.includes('新しい問題') || testCase.name.includes('バグ調査'));
+    const detailedResult = calculator.calculateRegularShanten(hand, testCase.name.includes('新しい問題') || testCase.name.includes('バグ調査'));
     console.log(`詳細版シャンテン: ${detailedResult.shanten}`);
-    console.log(`候補数: ${detailedResult.candidates.length}`);
+    console.log(`最適パターン数: ${detailedResult.optimalStates.length}`);
     
-    if (detailedResult.candidates.length > 0 && testCase.name === '問題のケース（11234567888999m）') {
-      console.log('最適パターン（萬子部分）:');
-      const candidate = detailedResult.candidates[0];
-      const manCounts = candidate.getManCounts();
-      console.log(`  残り牌: [${manCounts.join(',')}]`);
-      console.log(`  解説: 11(雀頭として残る), 234567(面子として除去), 888999(面子として除去)`);
+    if (detailedResult.optimalStates.length > 0 && testCase.name === '問題のケース（11234567888999m）') {
+      console.log('最適パターン（面子分解）:');
+      const state = detailedResult.optimalStates[0];
+      console.log(`  面子数: ${state.mentsuCount}, 対子数: ${state.toitsuCount}, 搭子数: ${state.taatsuCount}`);
+      console.log(`  解説: バックトラッキングによる最適分解`);
     }
   });
 

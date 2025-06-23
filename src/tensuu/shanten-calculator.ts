@@ -2,8 +2,8 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
-import { HandType, WaitType } from '../common/types';
-import type { ShantenOptions } from '../common/types';
+import { HandType } from '../common/types';
+import type { ShantenAnalysisResult } from '../common/types';
 import { TileCount } from '../common/tile-count';
 import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
@@ -13,7 +13,7 @@ import { Component, ComponentType } from '../common/component';
 /**
  * バックトラッキング状態を管理する構造体
  */
-interface BacktrackState {
+export interface BacktrackState {
   mentsuCount: number;    // 面子数（刻子・順子）
   toitsuCount: number;    // 対子数
   taatsuCount: number;    // 搭子数
@@ -31,47 +31,29 @@ export interface RemainingTileAnalysis {
 }
 
 /**
- * シャンテン計算の詳細情報
- */
-export interface ShantenCalculationDetail {
-  shanten: number;
-  mentsuList: Component[];   // 使用した面子のリスト（Componentベース）
-  remainingTiles: TileCount; // 残り牌
-}
-
-/**
  * 通常手シャンテン計算の結果
  */
 export interface RegularShantenResult {
   shanten: number;
-  candidates: TileCount[];  // 最適な面子構成の候補リスト（残り牌のTileCount）
-  details?: ShantenCalculationDetail[];  // 詳細情報（オプション）
-}
-
-
-// 詳細シャンテン結果（全情報含む）
-export interface ShantenResult {
-  readonly shanten: number;
-  readonly handType: HandType;
-  readonly regularShanten: number;
-  readonly chitoitsuShanten: number;
-  readonly kokushiShanten: number;
-  usefulTiles?: Tile[];
-  waitType?: WaitType;
+  optimalStates: BacktrackState[];  // 最適な状態配列
 }
 
 /**
  * シャンテン数計算統合クラス
  * 各計算機を統合
  */
+/**
+ * バックトラッキング計算コンテキスト
+ */
+interface BacktrackContext {
+  minShanten: number;
+  optimalStates: BacktrackState[];
+  debugMode: boolean;
+}
+
 export class ShantenCalculator {
   // 計算機のインスタンス
   private usefulTilesCalculator: UsefulTilesCalculator;
-  
-  // バックトラッキング用のプロパティ
-  private minShanten: number = 8;
-  private optimalStates: BacktrackState[] = [];
-  private debugMode: boolean = false;
 
   constructor() {
     // 計算機を初期化
@@ -83,22 +65,18 @@ export class ShantenCalculator {
    * 最も高速な計算で、シャンテン数のみを返す
    */
   public calculateShantenNumber(hand: Hand): number {
-    const basicResult = this.calculateShanten(hand,{includeUsefulTiles: false, includeWaitType: false});
-    return basicResult.shanten;
+    const result = this.calculateShanten(hand);
+    return result.shanten;
   }
 
-
   /**
-   * シャンテン結果計算
-   * オプションに応じて有効牌も含む
+   * シャンテン分析（通常手のみ面子分解結果を含む）
+   * 全ての手牌タイプを比較し、最適な結果を返す
    * @param hand 手牌オブジェクト（副露情報含む）
-   * @param options 計算オプション
    */
-  public calculateShanten(hand: Hand, 
-    options: ShantenOptions = {includeUsefulTiles: true, includeWaitType: true}): ShantenResult {
-
+  public calculateShanten(hand: Hand): ShantenAnalysisResult {
     // 全タイプのシャンテン数を計算
-    const regularShantenResult = this.calculateRegularShanten(hand, true, true);
+    const regularShantenResult = this.calculateRegularShanten(hand, false);
     const chitoitsuShanten = this.calculateChitoitsuShanten(hand);
     const kokushiShanten = this.calculateKokushiShanten(hand);
 
@@ -116,26 +94,19 @@ export class ShantenCalculator {
       bestHandType = HandType.KOKUSHI;
     }
 
-    const result: ShantenResult = {
-      shanten: bestShanten,
-      handType: bestHandType,
-      regularShanten:regularShantenResult.shanten,
-      chitoitsuShanten,
-      kokushiShanten
-    };
-
-    // オプションに応じて追加計算
-    const tiles = hand.getTehai();
-    
-    if (options.includeUsefulTiles) {
-      result.usefulTiles = this.usefulTilesCalculator.calculateUsefulTiles(tiles, bestHandType);
+    // 通常手の場合のみ詳細分解結果を含む
+    if (bestHandType === HandType.REGULAR) {
+      return {
+        shanten: bestShanten,
+        handType: bestHandType,
+        optimalStates: regularShantenResult.optimalStates
+      };
+    } else {
+      return {
+        shanten: bestShanten,
+        handType: bestHandType
+      };
     }
-
-    if (options.includeWaitType && bestShanten <= 0) {
-      result.waitType = this.calculateWaitType(tiles, bestHandType);
-    }
-
-    return result;
   }
 
   /**
@@ -150,45 +121,30 @@ export class ShantenCalculator {
    * Hand オブジェクトが和了形かチェック
    */
   public isWinningHand(hand: Hand): boolean {
-    const shantenResult = this.calculateShanten(hand);
-    return shantenResult.shanten === -1;
+    const result = this.calculateShanten(hand);
+    return result.shanten === -1;
   }
 
   /**
    * 通常手のシャンテン数を計算（バックトラッキング版）
    * @param hand 手牌オブジェクト
-   * @param includeDetails 詳細情報を含めるか
    * @param debugLog デバッグログを出力するか
    * @return シャンテン数と最適な面子構成の候補リスト
    */
-  public calculateRegularShanten(hand: Hand, includeDetails: boolean = false, debugLog: boolean = false): RegularShantenResult {
+  public calculateRegularShanten(hand: Hand, debugLog: boolean = false): RegularShantenResult {
     const handTileCount = hand.getTileCount();
     const meldCount = hand.getMeldCount();
     
-    // バックトラッキングアルゴリズムを使用
-    const shanten = this.calculateRegularShantenImpl(handTileCount, meldCount, debugLog);
-    
-    // 互換性のため、既存の形式で結果を返す
-    const result: RegularShantenResult = {
-      shanten: shanten,
-      candidates: [handTileCount], // 簡略化
-      ...(includeDetails && { details: [] })
+    // バックトラッキングコンテキストを作成（スレッドセーフ）
+    const context: BacktrackContext = {
+      minShanten: 8,
+      optimalStates: [],
+      debugMode: debugLog
     };
     
-    return result;
-  }
-
-  /**
-   * 通常手のシャンテン数を計算（バックトラッキング実装）
-   */
-  private calculateRegularShantenImpl(tileCount: TileCount, meldCount: number = 0, debugMode: boolean = false): number {
-    this.minShanten = 8;
-    this.optimalStates = [];
-    this.debugMode = debugMode;
-    
-    if (this.debugMode) {
+    if (context.debugMode) {
       console.log(`\n=== バックトラッキング開始 ===`);
-      console.log(`手牌: ${this.tileCountToString(tileCount)}`);
+      console.log(`手牌: ${this.tileCountToString(handTileCount)}`);
       console.log(`副露面子数: ${meldCount}`);
     }
     
@@ -201,28 +157,32 @@ export class ShantenCalculator {
     };
     
     // バックトラッキング開始
-    this.backtrack(tileCount.clone(), 0, initialState);
+    this.backtrack(handTileCount.clone(), 0, initialState, context);
     
-    if (this.debugMode) {
-      this.outputDebugResults();
+    if (context.debugMode) {
+      this.outputDebugResults(context);
     }
     
-    return this.minShanten;
+    // 結果を返す
+    return {
+      shanten: context.minShanten,
+      optimalStates: [...context.optimalStates] // 最適な状態をコピー
+    };
   }
 
   /**
    * バックトラッキング
    * 面子・対子・搭子を同時に最適化
    */
-  private backtrack(tiles: TileCount, position: number, state: BacktrackState): void {
+  private backtrack(tiles: TileCount, position: number, state: BacktrackState, context: BacktrackContext): void {
     // 全ての位置を処理済み
     if (position > MAX_TILE_INDEX) {
       // 残り牌を孤立牌として追加（デバッグ時のみ）
-      if (this.debugMode) {
+      if (context.debugMode) {
         this.addRemainingTilesToState(tiles, state);
       }
-      this.evaluateState(tiles, state);
-      if (this.debugMode) {
+      this.evaluateState(tiles, state, context);
+      if (context.debugMode) {
         this.removeRemainingTilesFromState(tiles, state);
       }
       return;
@@ -231,7 +191,7 @@ export class ShantenCalculator {
     const count = tiles.getCount(position);
     if (count === 0) {
       // この位置に牌がない場合は次へ
-      this.backtrack(tiles, position + 1, state);
+      this.backtrack(tiles, position + 1, state, context);
       return;
     }
     
@@ -240,7 +200,7 @@ export class ShantenCalculator {
       tiles.decrement(position, 3);
       state.mentsuCount++;
       state.components.push(Component.create(ComponentType.TRIPLET, [position, position, position]));
-      this.backtrack(tiles, position, state);
+      this.backtrack(tiles, position, state, context);
       // バックトラッキング: 状態を復元
       state.components.pop();
       state.mentsuCount--;
@@ -254,7 +214,7 @@ export class ShantenCalculator {
         tiles.decrement(position); tiles.decrement(position + 1); tiles.decrement(position + 2);
         state.mentsuCount++;
         state.components.push(Component.create(ComponentType.SEQUENCE, [position, position + 1, position + 2]));
-        this.backtrack(tiles, position, state);
+        this.backtrack(tiles, position, state, context);
         // バックトラッキング: 状態を復元
         state.components.pop();
         state.mentsuCount--;
@@ -266,7 +226,7 @@ export class ShantenCalculator {
       tiles.decrement(position, 2);
       state.toitsuCount++;
       state.components.push(Component.create(ComponentType.PAIR, [position, position]));
-      this.backtrack(tiles, position, state);
+      this.backtrack(tiles, position, state, context);
       // バックトラッキング: 状態を復元
       state.components.pop();
       state.toitsuCount--;
@@ -279,7 +239,7 @@ export class ShantenCalculator {
         tiles.decrement(position); tiles.decrement(position + 1);
         state.taatsuCount++;
         state.components.push(Component.create(ComponentType.TAATSU, [position, position + 1]));
-        this.backtrack(tiles, position, state);
+        this.backtrack(tiles, position, state, context);
         // バックトラッキング: 状態を復元
         state.components.pop();
         state.taatsuCount--;
@@ -292,7 +252,7 @@ export class ShantenCalculator {
         tiles.decrement(position); tiles.decrement(position + 2);
         state.taatsuCount++;
         state.components.push(Component.create(ComponentType.TAATSU, [position, position + 2]));
-        this.backtrack(tiles, position, state);
+        this.backtrack(tiles, position, state, context);
         // バックトラッキング: 状態を復元
         state.components.pop();
         state.taatsuCount--;
@@ -300,13 +260,13 @@ export class ShantenCalculator {
     }
     
     // 6. 何も取らずに次へ
-    this.backtrack(tiles, position + 1, state);
+    this.backtrack(tiles, position + 1, state, context);
   }
 
   /**
    * 現在の状態を評価してシャンテン数を計算
    */
-  private evaluateState(_tiles: TileCount, state: BacktrackState): void {
+  private evaluateState(_tiles: TileCount, state: BacktrackState, context: BacktrackContext): void {
     const mentsu = state.mentsuCount;
     const toitsu = state.toitsuCount;
     const taatsu = state.taatsuCount;
@@ -322,28 +282,24 @@ export class ShantenCalculator {
     
     shanten = Math.max(shanten, -1);
     
-    // 最適解の更新（デバッグモード時のみ状態保存）
-    if (shanten < this.minShanten) {
-      this.minShanten = shanten;
-      if (this.debugMode) {
-        this.optimalStates = [this.cloneState(state)];
-      } else {
-        this.optimalStates = [];
-      }
-    } else if (shanten === this.minShanten && this.debugMode) {
+    // 最適解の更新（常に状態保存）
+    if (shanten < context.minShanten) {
+      context.minShanten = shanten;
+      context.optimalStates = [this.cloneState(state)];
+    } else if (shanten === context.minShanten) {
       // 重複チェック: 同じComponent配列が既に存在するかチェック
-      const isDuplicate = this.optimalStates.some(existingState => 
+      const isDuplicate = context.optimalStates.some(existingState => 
         Component.areComponentArraysEqual(existingState.components, state.components)
       );
       
       if (!isDuplicate) {
-        this.optimalStates.push(this.cloneState(state));
+        context.optimalStates.push(this.cloneState(state));
       }
     }
   }
 
   /**
-   * 状態のクローン（デバッグ時のみ使用）
+   * 状態のクローン
    */
   private cloneState(state: BacktrackState): BacktrackState {
     return {
@@ -437,14 +393,14 @@ export class ShantenCalculator {
   /**
    * デバッグ結果の出力
    */
-  private outputDebugResults(): void {
+  private outputDebugResults(context: BacktrackContext): void {
     console.log(`\n=== バックトラッキング結果 ===`);
-    console.log(`最小シャンテン数: ${this.minShanten}`);
-    console.log(`最適パターン数: ${this.optimalStates.length} (重複除去済み)`);
+    console.log(`最小シャンテン数: ${context.minShanten}`);
+    console.log(`最適パターン数: ${context.optimalStates.length} (重複除去済み)`);
     
-    if (this.optimalStates.length > 0) {
+    if (context.optimalStates.length > 0) {
       console.log(`\n=== 最適パターン詳細 ===`);
-      this.optimalStates.slice(0, 3).forEach((state, index) => {
+      context.optimalStates.slice(0, 3).forEach((state, index) => {
         console.log(`\n--- パターン ${index + 1} ---`);
         console.log(`面子数: ${state.mentsuCount}, 対子数: ${state.toitsuCount}, 搭子数: ${state.taatsuCount}`);
         
@@ -473,8 +429,8 @@ export class ShantenCalculator {
         }
       });
       
-      if (this.optimalStates.length > 3) {
-        console.log(`\n... 他 ${this.optimalStates.length - 3} パターン`);
+      if (context.optimalStates.length > 3) {
+        console.log(`\n... 他 ${context.optimalStates.length - 3} パターン`);
       }
     }
     
@@ -553,19 +509,4 @@ export class ShantenCalculator {
     return 13 - kinds - (toitsu > 0 ? 1 : 0);
   }
 
-
-  /**
-   * 待ちの形を計算（簡易実装）
-   */
-  private calculateWaitType(_tiles: Tile[], handType: HandType): WaitType {
-    // 簡易実装：手牌タイプに基づく基本的な待ち
-    switch (handType) {
-      case HandType.CHITOITSU:
-        return WaitType.TANKI;
-      case HandType.KOKUSHI:
-        return WaitType.TANKI;
-      default:
-        return WaitType.RYANMEN; // デフォルト
-    }
-  }
 }

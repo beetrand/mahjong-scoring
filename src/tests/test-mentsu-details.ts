@@ -3,7 +3,7 @@
 import { Hand } from '../common/hand';
 import { HandParser } from '../common/hand-parser';
 import { ShantenCalculator } from '../tensuu/shanten-calculator';
-import { indexToTileName } from '../common/tile-constants';
+import { ComponentType } from '../common/component';
 
 // テスト用のHandオブジェクトを作成
 function createTestHand(tileStr: string): Hand {
@@ -24,62 +24,6 @@ function createTestHand(tileStr: string): Hand {
 }
 
 
-// 残り牌の表示（対子・搭子・孤立牌）
-function displayRemainingTiles(tiles: any): string {
-  const remaining = [];
-  
-  // 対子の検出
-  for (let i = 0; i < 34; i++) {
-    const count = tiles.getCount(i);
-    if (count >= 2) {
-      const tileName = indexToTileName(i);
-      remaining.push(`${tileName}${tileName}(対子)`);
-      tiles.decrement(i, 2);
-    }
-  }
-  
-  // 数牌の搭子の検出
-  for (let suit = 0; suit < 3; suit++) {
-    const start = suit * 9;
-    
-    // 隣接搭子
-    for (let i = start; i < start + 8; i++) {
-      const count1 = tiles.getCount(i);
-      const count2 = tiles.getCount(i + 1);
-      if (count1 > 0 && count2 > 0) {
-        const tileName1 = indexToTileName(i);
-        const tileName2 = indexToTileName(i + 1);
-        remaining.push(`${tileName1}${tileName2}(搭子)`);
-        tiles.decrement(i);
-        tiles.decrement(i + 1);
-      }
-    }
-    
-    // 飛び搭子
-    for (let i = start; i < start + 7; i++) {
-      const count1 = tiles.getCount(i);
-      const count3 = tiles.getCount(i + 2);
-      if (count1 > 0 && count3 > 0) {
-        const tileName1 = indexToTileName(i);
-        const tileName3 = indexToTileName(i + 2);
-        remaining.push(`${tileName1}${tileName3}(搭子)`);
-        tiles.decrement(i);
-        tiles.decrement(i + 2);
-      }
-    }
-  }
-  
-  // 残りの孤立牌
-  for (let i = 0; i < 34; i++) {
-    const count = tiles.getCount(i);
-    if (count > 0) {
-      const tileName = indexToTileName(i);
-      remaining.push(`${tileName.repeat(count)}(孤立)`);
-    }
-  }
-  
-  return remaining.join(' ');
-}
 
 function testMentsuDetails() {
   console.log('=== 面子詳細情報テスト ===\n');
@@ -117,26 +61,41 @@ function testMentsuDetails() {
     const hand = createTestHand(testCase.tiles);
     
     // 詳細情報付きでシャンテン数を計算
-    const result = calculator.calculateRegularShanten(hand, true);
+    const shantenResult = calculator.calculateShanten(hand);
     
-    console.log(`シャンテン数: ${result.shanten}`);
-    console.log(`詳細パターン数: ${result.details?.length || 0}`);
+    console.log(`シャンテン数: ${shantenResult.shanten}`);
+    console.log(`手牌タイプ: ${shantenResult.handType}`);
     
-    if (result.details && result.details.length > 0) {
-      result.details.forEach((detail, index) => {
+    // 通常手の場合
+    if (shantenResult.handType === 'regular' && shantenResult.optimalStates) {
+      console.log(`詳細パターン数: ${shantenResult.optimalStates.length}`);
+      
+      shantenResult.optimalStates.forEach((state, index) => {
         console.log(`\n  パターン ${index + 1}:`);
-        console.log(`    面子数: ${detail.mentsuList.length}`);
+        console.log(`    面子数: ${state.mentsuCount}, 対子数: ${state.toitsuCount}, 搭子数: ${state.taatsuCount}`);
         
-        detail.mentsuList.forEach((component, mentsuIndex) => {
+        // 面子の表示
+        const mentsu = state.components.filter(c => c.isCompleteMentsu());
+        mentsu.forEach((component, mentsuIndex) => {
           console.log(`    面子${mentsuIndex + 1}: ${component.toString()}`);
         });
         
-        // 残り牌の表示
-        const remainingDisplay = displayRemainingTiles(detail.remainingTiles.clone());
-        if (remainingDisplay) {
-          console.log(`    残り牌: ${remainingDisplay}`);
-        }
+        // 対子の表示
+        const pairs = state.components.filter(c => c.type === ComponentType.PAIR);
+        pairs.forEach((component, pairIndex) => {
+          console.log(`    対子${pairIndex + 1}: ${component.toString()}`);
+        });
+        
+        // 搭子の表示
+        const taatsu = state.components.filter(c => c.type === ComponentType.TAATSU);
+        taatsu.forEach((component, taatsuIndex) => {
+          console.log(`    搭子${taatsuIndex + 1}: ${component.toString()}`);
+        });
       });
+    }
+    // 七対子・国士無双の場合（詳細分解は行わない）
+    else {
+      console.log(`${shantenResult.handType}手として計算済み`);
     }
   });
 }

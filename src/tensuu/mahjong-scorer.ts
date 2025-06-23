@@ -6,7 +6,7 @@ import { HandParser } from '../common/hand-parser';
 import { Component } from '../common/component';
 import { ScoringResult } from './scoring';
 import { ShantenCalculator } from './shanten-calculator';
-import type { ShantenResult } from './shanten-calculator';
+import type { ShantenAnalysisResult } from '../common/types';
 import type { GameContext, BonusPoints, HandAnalysisResult, HandState } from '../common/types';
 
 export class MahjongScorer {
@@ -24,7 +24,7 @@ export class MahjongScorer {
   /**
    * 手牌オブジェクトのシャンテン数を計算（副露対応）
    */
-  public calculateShanten(hand: Hand): ShantenResult {
+  public calculateShanten(hand: Hand): ShantenAnalysisResult {
     return this.shantenCalculator.calculateShanten(hand);
   }
 
@@ -59,11 +59,12 @@ export class MahjongScorer {
       message = `${shanten}シャンテン`;
     }
 
-    // 有効牌を文字列に変換
-    const usefulTiles = shantenResult.usefulTiles?.map(tile => tile.toString()) || [];
+    // 有効牌を別途計算
+    const usefulTilesArray = this.shantenCalculator.calculateUsefulTiles(hand, shantenResult.handType);
+    const usefulTiles = usefulTilesArray.map(tile => tile.toString());
     
     // 有効牌の残り枚数を計算
-    const usefulTileCount = shantenResult.usefulTiles ? this.calculateRemainingTileCountFromHand(shantenResult.usefulTiles, hand) : 0;
+    const usefulTileCount = this.calculateRemainingTileCountFromHand(usefulTilesArray, hand);
 
     return {
       handState,
@@ -274,7 +275,7 @@ export class MahjongScorer {
     return this.scoreHand(hand, options.bonuses || { riichiSticks: 0, honbaSticks: 0 });
   }
 
-  public calculateShantenFromString(tilesStr: string, drawnTile: string, gameContext: GameContext): ShantenResult {
+  public calculateShantenFromString(tilesStr: string, drawnTile: string, gameContext: GameContext): ShantenAnalysisResult {
     const hand = Hand.fromString(tilesStr, {
       drawnTile,
       isTsumo: true,
