@@ -1,74 +1,107 @@
-// 麻雀牌クラス
+// 麻雀牌クラス - シンプル化されたindex中心設計
 
-import { TileSuit } from './types';
+import type { TileSuit } from './types';
 import { 
-  calculateIndex as calculateTileIndex, 
   getSuitFromIndex, 
   getValueFromIndex,
+  tileNameToIndex,
   MAX_TILE_INDEX 
 } from './tile-constants';
 
 export class Tile {
-  public readonly suit: TileSuit;
-  public readonly value: number;
+  public readonly index: number; // 0-33のメインデータ
   public readonly isRed: boolean;
-  public readonly index: number; // シャンテン計算用インデックス（0-33）
 
-  constructor(suit: TileSuit, value: number, isRed: boolean = false) {
-    this.suit = suit;
-    this.value = value;
-    this.isRed = isRed;
+  // suitとvalueはgetterで計算（冗長なプロパティを削除）
+  public get suit(): TileSuit {
+    return getSuitFromIndex(this.index);
+  }
+
+  public get value(): number {
+    return getValueFromIndex(this.index);
+  }
+
+  // コンストラクタ: 文字列またはindex + isRedで作成
+  constructor(tileString: string);
+  constructor(index: number, isRed?: boolean);
+  constructor(indexOrString: number | string, isRed: boolean = false) {
+    if (typeof indexOrString === 'string') {
+      // 文字列からの作成
+      const parsed = this.parseString(indexOrString);
+      this.index = parsed.index;
+      this.isRed = parsed.isRed;
+    } else {
+      // indexからの作成
+      this.index = indexOrString;
+      this.isRed = isRed;
+    }
     
-    // バリデーション
     this.validateTile();
+  }
+
+  private parseString(str: string): { index: number, isRed: boolean } {
+    str = str.trim();
     
-    // インデックス計算
-    this.index = this.calculateIndex();
+    // z記法の字牌の場合 (例: "1z", "7z")
+    const zMatch = str.match(/^([1-7])z$/);
+    if (zMatch) {
+      const value = parseInt(zMatch[1]);
+      if (value >= 1 && value <= 4) {
+        // 1z=東, 2z=南, 3z=西, 4z=北
+        return { index: tileNameToIndex(`${value}z`), isRed: false };
+      } else if (value >= 5 && value <= 7) {
+        // 5z=白, 6z=發, 7z=中
+        return { index: tileNameToIndex(`${value}z`), isRed: false };
+      }
+    }
+
+    // 数牌の場合 (例: "1m", "5pr")
+    const match = str.match(/^(\d)([mps])(r?)$/);
+    if (!match) {
+      throw new Error(`Invalid tile string: ${str}`);
+    }
+
+    const value = parseInt(match[1]);
+    const suitChar = match[2];
+    const isRed = match[3] === 'r';
+
+    // 赤ドラは5のみ
+    if (isRed && value !== 5) {
+      throw new Error(`Red tile must be 5, got: ${value}`);
+    }
+
+    const tileName = `${value}${suitChar}`;
+    return { index: tileNameToIndex(tileName), isRed };
   }
 
   private validateTile(): void {
-    if (this.suit === 'man' || this.suit === 'pin' || this.suit === 'sou') {
-      if (this.value < 1 || this.value > 9) {
-        throw new Error(`Invalid number tile value: ${this.value}`);
-      }
-      // 赤ドラは5のみ
-      if (this.isRed && this.value !== 5) {
-        throw new Error(`Red tile must be 5, got: ${this.value}`);
-      }
-    } else if (this.suit === 'wind') {
-      if (this.value < 1 || this.value > 4) {
-        throw new Error(`Invalid wind tile value: ${this.value}`);
-      }
-    } else if (this.suit === 'dragon') {
-      if (this.value < 1 || this.value > 3) {
-        throw new Error(`Invalid dragon tile value: ${this.value}`);
-      }
-    }
-  }
-
-  /**
-   * シャンテン計算用インデックスを計算
-   * 0-8: 萬子 (1m-9m)
-   * 9-17: 筒子 (1p-9p)  
-   * 18-26: 索子 (1s-9s)
-   * 27-30: 風牌 (1z-4z)
-   * 31-33: 三元牌 (5z-7z)
-   */
-  private calculateIndex(): number {
-    return calculateTileIndex(this.suit, this.value);
-  }
-
-  /**
-   * インデックスから牌を作成（ユーティリティメソッド）
-   */
-  public static fromIndex(index: number): Tile {
-    if (index < 0 || index > MAX_TILE_INDEX) {
-      throw new Error(`Invalid tile index: ${index}`);
+    if (this.index < 0 || this.index > MAX_TILE_INDEX) {
+      throw new Error(`Invalid tile index: ${this.index}`);
     }
     
-    const suit = getSuitFromIndex(index);
-    const value = getValueFromIndex(index);
-    return new Tile(suit, value);
+    // 赤ドラは5のみ（value = 5の数牌のみ）
+    if (this.isRed) {
+      if (this.isHonor()) {
+        throw new Error('Honor tiles cannot be red');
+      }
+      if (this.value !== 5) {
+        throw new Error(`Red tile must be 5, got: ${this.value}`);
+      }
+    }
+  }
+
+  /**
+   * インデックスから牌を作成（静的メソッド）
+   */
+  public static fromIndex(index: number, isRed: boolean = false): Tile {
+    return new Tile(index, isRed);
+  }
+
+  /**
+   * 文字列から牌を作成（静的メソッド）
+   */
+  public static fromString(str: string): Tile {
+    return new Tile(str);
   }
 
   public toString(): string {
@@ -83,15 +116,12 @@ export class Tile {
     }
   }
 
-
   public equals(other: Tile): boolean {
-    return this.suit === other.suit && 
-           this.value === other.value && 
-           this.isRed === other.isRed;
+    return this.index === other.index && this.isRed === other.isRed;
   }
 
   public equalsIgnoreRed(other: Tile): boolean {
-    return this.suit === other.suit && this.value === other.value;
+    return this.index === other.index;
   }
 
   public isTerminal(): boolean {
@@ -120,58 +150,17 @@ export class Tile {
     return this.suit === 'man' || this.suit === 'pin' || this.suit === 'sou';
   }
 
-  // 文字列から牌を作成
-  public static fromString(str: string): Tile {
-    str = str.trim();
-    
-    // z記法の字牌の場合 (例: "1z", "7z")
-    const zMatch = str.match(/^([1-7])z$/);
-    if (zMatch) {
-      const value = parseInt(zMatch[1]);
-      if (value >= 1 && value <= 4) {
-        // 1z=東, 2z=南, 3z=西, 4z=北
-        return new Tile('wind', value);
-      } else if (value >= 5 && value <= 7) {
-        // 5z=白, 6z=發, 7z=中
-        return new Tile('dragon', value - 4);
-      }
-    }
-
-    // 数牌の場合 (例: "1m", "5pr")
-    const match = str.match(/^(\d)([mps])(r?)$/);
-    if (!match) {
-      throw new Error(`Invalid tile string: ${str}`);
-    }
-
-    const value = parseInt(match[1]);
-    const suitChar = match[2];
-    const isRed = match[3] === 'r';
-
-    const suitMap: { [key: string]: TileSuit } = {
-      'm': 'man',
-      'p': 'pin',
-      's': 'sou'
-    };
-
-    const suit = suitMap[suitChar];
-    return new Tile(suit, value, isRed);
-  }
-
   // 複数の牌を文字列から作成
   public static fromStringArray(tiles: string[]): Tile[] {
     return tiles.map(tileStr => Tile.fromString(tileStr));
   }
 
-
-  // ソート用比較関数
+  // ソート用比較関数（indexベースで高速化）
   public static compare(a: Tile, b: Tile): number {
-    if (a.suit !== b.suit) {
-      const suitOrder = ['man', 'pin', 'sou', 'wind', 'dragon'] as const;
-      return suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit);
+    if (a.index !== b.index) {
+      return a.index - b.index;
     }
-    if (a.value !== b.value) {
-      return a.value - b.value;
-    }
+    // 同じ牌の場合、赤ドラを優先（ソート時に先頭に来る）
     return a.isRed ? -1 : (b.isRed ? 1 : 0);
   }
 }

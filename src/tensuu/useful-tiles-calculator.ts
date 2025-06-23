@@ -2,7 +2,7 @@
 
 import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
-import { HandType, TileSuit } from '../common/types';
+import { HandType } from '../common/types';
 import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
 /**
@@ -138,20 +138,20 @@ export class UsefulTilesCalculator {
     const tiles: Tile[] = [];
     
     // 数牌 (1-9)
-    for (const suit of [TileSuit.MAN, TileSuit.PIN, TileSuit.SOU]) {
+    for (const suit of ['m', 'p', 's']) {
       for (let value = 1; value <= 9; value++) {
-        tiles.push(new Tile(suit, value));
+        tiles.push(new Tile(`${value}${suit}`));
       }
     }
     
     // 風牌 (1-4)
     for (let value = 1; value <= 4; value++) {
-      tiles.push(new Tile(TileSuit.WIND, value));
+      tiles.push(new Tile(`${value}z`));
     }
     
-    // 三元牌 (1-3)
-    for (let value = 1; value <= 3; value++) {
-      tiles.push(new Tile(TileSuit.DRAGON, value));
+    // 三元牌 (5-7)
+    for (let value = 5; value <= 7; value++) {
+      tiles.push(new Tile(`${value}z`));
     }
     
     return tiles;

@@ -32,39 +32,32 @@ export function createMockHandOptions(overrides: Partial<HandOptions> = {}): Han
 }
 
 /**
- * 型安全なTile作成ヘルパー
- */
-export function createTile(suit: keyof typeof TileSuit, value: number, isRed = false): Tile {
-  return new Tile(TileSuit[suit], value, isRed);
-}
-
-/**
  * 型安全な数牌作成
  */
 export function createManTile(value: number, isRed = false): Tile {
-  return createTile('MAN', value, isRed);
+  return new Tile(`${value}m${isRed ? 'r' : ''}`);
 }
 
 export function createPinTile(value: number, isRed = false): Tile {
-  return createTile('PIN', value, isRed);
+  return new Tile(`${value}p${isRed ? 'r' : ''}`);
 }
 
 export function createSouTile(value: number, isRed = false): Tile {
-  return createTile('SOU', value, isRed);
+  return new Tile(`${value}s${isRed ? 'r' : ''}`);
 }
 
 /**
  * 型安全な風牌作成
  */
 export function createWindTile(wind: keyof typeof Wind): Tile {
-  return createTile('WIND', Wind[wind]);
+  return new Tile(`${Wind[wind]}z`);
 }
 
 /**
  * 型安全な三元牌作成
  */
 export function createDragonTile(dragon: keyof typeof Dragon): Tile {
-  return createTile('DRAGON', Dragon[dragon]);
+  return new Tile(`${Dragon[dragon] + 4}z`);
 }
 
 /**

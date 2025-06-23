@@ -131,7 +131,7 @@ function main() {
 
 function demonstrateTileOperations() {
   const tile1 = Tile.fromString('5pr'); // 赤五筒
-  const tile2 = new Tile('wind' as any, 1); // 東
+  const tile2 = new Tile('1z'); // 東
   
   console.log(`赤五筒: ${tile1.toString()}, 赤ドラ: ${tile1.isRed}`);
   console.log(`東: ${tile2.toString()}, 字牌: ${tile2.isHonor()}`);
