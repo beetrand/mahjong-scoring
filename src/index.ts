@@ -4,7 +4,7 @@ export { Tile } from './common/tile';
 export { Component, ComponentStack, ComponentType } from './common/component';
 export type { ComponentCombination } from './common/component';
 export { ShantenCalculator } from './tensuu/shanten-calculator';
-export { UsefulTilesCalculator } from './tensuu/useful-tiles-calculator';
+export { EffectiveTilesCalculator } from './tensuu/effective-tiles-calculator';
 export { HandAnalyzer } from './tensuu/hand-analyzer';
 export { 
   Yaku, 
@@ -44,7 +44,7 @@ export {
 } from './common/types';
 
 // 型のエクスポート
-export type { ShantenAnalysisResult } from './common/types';
+export type { ShantenAnalysisResult } from './tensuu/shanten-calculator';
 export type { YakuResult } from './tensuu/yaku';
 export type { 
   FuResult,

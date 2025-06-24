@@ -94,7 +94,9 @@ function testBacktracking() {
     // 通常手のシャンテン数を計算
     const shantenResult = calculator.calculateShanten(hand);
     const shanten = shantenResult.shanten;
-    const regularShanten = calculator.calculateRegularShanten(hand).shanten;
+    const handTileCount = hand.getTileCount();
+    const meldCount = hand.getMeldCount();
+    const regularShanten = calculator.calculateRegularShanten(handTileCount, meldCount).shanten;
     
     console.log(`計算結果: ${shanten}シャンテン`);
     console.log(`通常手シャンテン: ${regularShanten}`);
@@ -102,7 +104,7 @@ function testBacktracking() {
     console.log(`結果: ${shanten === testCase.expectedShanten ? '✓ 成功' : '✗ 失敗'}`);
     
     // 詳細版のテスト（デバッグログ付き）
-    const detailedResult = calculator.calculateRegularShanten(hand, testCase.name.includes('新しい問題') || testCase.name.includes('バグ調査'));
+    const detailedResult = calculator.calculateRegularShanten(handTileCount, meldCount, testCase.name.includes('新しい問題') || testCase.name.includes('バグ調査'));
     console.log(`詳細版シャンテン: ${detailedResult.shanten}`);
     console.log(`最適パターン数: ${detailedResult.optimalCompositions.length}`);
     

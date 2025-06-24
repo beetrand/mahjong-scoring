@@ -1,12 +1,11 @@
 // 麻雀点数計算統合クラス
 
-import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
 import { HandParser } from '../common/hand-parser';
 import { Component } from '../common/component';
 import { ScoringResult } from './scoring';
 import { ShantenCalculator } from './shanten-calculator';
-import type { ShantenAnalysisResult } from '../common/types';
+import type { ShantenAnalysisResult } from './shanten-calculator';
 import type { GameContext, BonusPoints, HandAnalysisResult, HandState } from '../common/types';
 
 export class MahjongScorer {
@@ -30,18 +29,20 @@ export class MahjongScorer {
 
   /**
    * 手牌オブジェクトが和了形かチェック（副露対応）
+   * @param excludeTsumoTile ツモ牌を除外して判定するか（デフォルト: true）
    */
-  public isWinningHand(hand: Hand): boolean {
-    const shantenResult = this.shantenCalculator.calculateShanten(hand);
+  public isWinningHand(hand: Hand, excludeTsumoTile: boolean = true): boolean {
+    const shantenResult = this.shantenCalculator.calculateShanten(hand, excludeTsumoTile);
     return shantenResult.shanten === -1;
   }
 
   /**
    * 手牌オブジェクトの状態を分析（副露対応）
    * 副露を適切に考慮したシャンテン計算
+   * @param excludeTsumoTile ツモ牌を除外して分析するか（デフォルト: true）
    */
-  public analyzeHandState(hand: Hand): HandAnalysisResult {
-    const shantenResult = this.shantenCalculator.calculateShanten(hand);
+  public analyzeHandState(hand: Hand, excludeTsumoTile: boolean = true): HandAnalysisResult {
+    const shantenResult = this.shantenCalculator.calculateShanten(hand, excludeTsumoTile);
     const shanten = shantenResult.shanten;
     
     // 手牌状態の判定（統一されたロジック）
@@ -60,11 +61,11 @@ export class MahjongScorer {
     }
 
     // 有効牌を別途計算
-    const usefulTilesArray = this.shantenCalculator.calculateUsefulTiles(hand, shantenResult.handType);
-    const usefulTiles = usefulTilesArray.map(tile => tile.toString());
+    // 有効牌計算は循環参照を避けるため、別途EffectiveTilesCalculatorを使用
+    const usefulTiles: string[] = []; // TODO: 必要に応じてEffectiveTilesCalculatorを使用
     
     // 有効牌の残り枚数を計算
-    const usefulTileCount = this.calculateRemainingTileCountFromHand(usefulTilesArray, hand);
+    const usefulTileCount = 0; // TODO: 有効牌計算後に実装
 
     return {
       handState,
@@ -77,9 +78,11 @@ export class MahjongScorer {
   }
 
 
-  /**
+  /*
    * 手牌オブジェクトから有効牌の残り枚数を計算
+   * TODO: EffectiveTilesCalculator統合後に再実装
    */
+  /*
   private calculateRemainingTileCountFromHand(usefulTiles: Tile[], hand: Hand): number {
     let remainingCount = 0;
     const allTiles = hand.getAllTiles(); // 副露牌も含む全牌
@@ -94,6 +97,7 @@ export class MahjongScorer {
     
     return remainingCount;
   }
+  */
 
 
 

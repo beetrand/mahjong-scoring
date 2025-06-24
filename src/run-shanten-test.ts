@@ -66,14 +66,18 @@ function runShantenTest(maxLines: number = 100): void {
       });
       
       // シャンテン数を計算
-      const regularResult = calculator.calculateRegularShanten(hand);
-      const kokushiResult = calculator.calculateKokushiShanten(hand);
-      const chitoitsuResult = calculator.calculateChitoitsuShanten(hand);
+      const handTileCount = hand.getTileCount();
+      const meldCount = hand.getMeldCount();
+      const hasMelds = hand.hasMelds();
+      
+      const regularResult = calculator.calculateRegularShanten(handTileCount, meldCount);
+      const kokushiResult = calculator.calculateKokushiShanten(handTileCount, hasMelds);
+      const chitoitsuResult = calculator.calculateChitoitsuShanten(handTileCount, hasMelds);
       
       // 結果チェック
       const regularMatch = regularResult.shanten === handData.expectedShanten;
-      const kokushiMatch = kokushiResult.shanten === handData.expectedKokushi;
-      const chitoitsuMatch = chitoitsuResult.shanten === handData.expectedChitoitsu;
+      const kokushiMatch = kokushiResult === handData.expectedKokushi;
+      const chitoitsuMatch = chitoitsuResult === handData.expectedChitoitsu;
       
       if (regularMatch) regularCorrect++;
       if (kokushiMatch) kokushiCorrect++;
@@ -86,7 +90,7 @@ function runShantenTest(maxLines: number = 100): void {
         if (errorCount < 5) {
           console.log(`\nエラー Line ${i + 1}: ${createHandString(handData.tiles)}`);
           console.log(`  期待値: 通常=${handData.expectedShanten}, 国士=${handData.expectedKokushi}, 七対=${handData.expectedChitoitsu}`);
-          console.log(`  実際値: 通常=${regularResult.shanten}, 国士=${kokushiResult.shanten}, 七対=${chitoitsuResult.shanten}`);
+          console.log(`  実際値: 通常=${regularResult.shanten}, 国士=${kokushiResult}, 七対=${chitoitsuResult}`);
         }
         errorCount++;
       }

@@ -90,9 +90,28 @@ export class Hand {
   /**
    * 手牌（門前牌）を取得
    * 門前牌のみを返し、副露の影響は内部で隠蔽
+   * @param excludeTsumoTile ツモ牌を除外するかどうか（デフォルト: false）
    */
-  public getTehai(): Tile[] {
-    return this.getConcealedTiles();
+  public getTehai(excludeTsumoTile: boolean = false): Tile[] {
+    const tiles = this.getConcealedTiles();
+    
+    if (!excludeTsumoTile) {
+      return tiles;
+    }
+    
+    // ツモ牌を1枚だけ除外（赤ドラも考慮）
+    const result: Tile[] = [];
+    let tsumoRemoved = false;
+    
+    for (const tile of tiles) {
+      if (!tsumoRemoved && tile.equals(this.drawnTile)) {
+        tsumoRemoved = true;
+        continue;
+      }
+      result.push(tile);
+    }
+    
+    return result;
   }
 
   /**
@@ -103,13 +122,6 @@ export class Hand {
     return 4 - this.openMelds.length;
   }
 
-  /**
-   * 特殊手（七対子・国士無双）が使用可能かチェック
-   * 副露がある場合は特殊手は成立しない
-   */
-  public canUseSpecialHands(): boolean {
-    return this.openMelds.length === 0;
-  }
 
   /**
    * 副露面子数を取得
@@ -140,12 +152,19 @@ export class Hand {
   /**
    * シャンテン計算用の牌種別カウントを作成
    * TileCountオブジェクトとして管理
+   * @param excludeTile 除外する牌（オプション）
    */
-  private createTileCount(): TileCount {
+  private createTileCount(excludeTile?: Tile): TileCount {
     const tileCount = new TileCount();
+    let excludeRemoved = false;
     
     // 門前牌のみをカウント（副露は除外）
     for (const tile of this.tiles) {
+      // excludeTileが指定されている場合、1枚だけ除外（赤ドラも考慮）
+      if (excludeTile && !excludeRemoved && tile.equals(excludeTile)) {
+        excludeRemoved = true;
+        continue;
+      }
       tileCount.addTile(tile);
     }
     
@@ -154,9 +173,15 @@ export class Hand {
 
   /**
    * シャンテン計算用の牌種別カウントを取得
+   * @param excludeTsumoTile ツモ牌を除外するかどうか（デフォルト: false）
    */
-  public getTileCount(): TileCount {
-    return this.tileCount.clone(); // コピーを返して不変性を保持
+  public getTileCount(excludeTsumoTile: boolean = false): TileCount {
+    if (!excludeTsumoTile) {
+      return this.tileCount.clone(); // コピーを返して不変性を保持
+    }
+    
+    // ツモ牌を除外した新しいTileCountを作成
+    return this.createTileCount(this.drawnTile);
   }
 
 

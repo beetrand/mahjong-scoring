@@ -1,12 +1,10 @@
 // 新しいシャンテン数計算統合クラス
 
-import { Tile } from '../common/tile';
 import { Hand } from '../common/hand';
 import { HandType } from '../common/types';
 import { TileCount } from '../common/tile-count';
 import { SUIT_RANGES, MAX_TILE_INDEX } from '../common/tile-constants';
 
-import { UsefulTilesCalculator } from './useful-tiles-calculator';
 import { Component, ComponentType } from '../common/component';
 
 // 国士無双対象牌のインデックス（定数化）
@@ -59,20 +57,17 @@ interface MentsuAnalysisContext {
 }
 
 export class ShantenCalculator {
-  // 計算機のインスタンス
-  private usefulTilesCalculator: UsefulTilesCalculator;
 
   constructor() {
-    // 計算機を初期化
-    this.usefulTilesCalculator = new UsefulTilesCalculator();
   }
 
   /**
    * 軽量シャンテン数計算（基本情報のみ）
    * 最も高速な計算で、シャンテン数のみを返す
+   * @param excludeTsumoTile ツモ牌を除外するかどうか（デフォルト: false）
    */
-  public calculateShantenNumber(hand: Hand): number {
-    const result = this.calculateShanten(hand);
+  public calculateShantenNumber(hand: Hand, excludeTsumoTile: boolean = false): number {
+    const result = this.calculateShanten(hand, excludeTsumoTile);
     return result.shanten;
   }
 
@@ -80,12 +75,18 @@ export class ShantenCalculator {
    * シャンテン分析（通常手のみ面子分解結果を含む）
    * 全ての手牌タイプを比較し、最適な結果を返す
    * @param hand 手牌オブジェクト（副露情報含む）
+   * @param excludeTsumoTile ツモ牌を除外するかどうか（デフォルト: false）
    */
-  public calculateShanten(hand: Hand): ShantenAnalysisResult {
+  public calculateShanten(hand: Hand, excludeTsumoTile: boolean = false): ShantenAnalysisResult {
+    // 手牌情報を抽出
+    const handTileCount = hand.getTileCount(excludeTsumoTile);
+    const meldCount = hand.getMeldCount();
+    const hasMelds = hand.hasMelds();
+    
     // 全タイプのシャンテン数を計算
-    const regularShantenResult = this.calculateRegularShanten(hand, false);
-    const chitoitsuShanten = this.calculateChitoitsuShanten(hand);
-    const kokushiShanten = this.calculateKokushiShanten(hand);
+    const regularShantenResult = this.calculateRegularShanten(handTileCount, meldCount, false);
+    const chitoitsuShanten = this.calculateChitoitsuShanten(handTileCount, hasMelds);
+    const kokushiShanten = this.calculateKokushiShanten(handTileCount, hasMelds);
 
     // 最小シャンテン数とその手牌タイプを決定
     let bestShanten = regularShantenResult.shanten;
@@ -117,30 +118,22 @@ export class ShantenCalculator {
   }
 
   /**
-   * 有効牌を独立して計算
-   */
-  public calculateUsefulTiles(hand: Hand, targetHandType?: HandType): Tile[] {
-    const tiles = hand.getTehai();
-    return this.usefulTilesCalculator.calculateUsefulTiles(tiles, targetHandType);
-  }
-
-  /**
    * Hand オブジェクトが和了形かチェック
+   * @param excludeTsumoTile ツモ牌を除外するかどうか（デフォルト: false）
    */
-  public isWinningHand(hand: Hand): boolean {
-    const result = this.calculateShanten(hand);
+  public isWinningHand(hand: Hand, excludeTsumoTile: boolean = false): boolean {
+    const result = this.calculateShanten(hand, excludeTsumoTile);
     return result.shanten === -1;
   }
 
   /**
    * 通常手のシャンテン数を計算（バックトラッキング版）
-   * @param hand 手牌オブジェクト
+   * @param handTileCount 手牌の牌種別カウント
+   * @param meldCount 副露面子数
    * @param debugLog デバッグログを出力するか
    * @return シャンテン数と最適な面子構成の候補リスト
    */
-  public calculateRegularShanten(hand: Hand, debugLog: boolean = false): RegularShantenResult {
-    const handTileCount = hand.getTileCount();
-    const meldCount = hand.getMeldCount();
+  public calculateRegularShanten(handTileCount: TileCount, meldCount: number, debugLog: boolean = false): RegularShantenResult {
     
     // 面子分解コンテキストを作成（スレッドセーフ）
     const context: MentsuAnalysisContext = {
@@ -444,15 +437,14 @@ export class ShantenCalculator {
 
   /**
    * 七対子のシャンテン数を計算
-   * @param hand 手牌オブジェクト
+   * @param handTileCount 手牌の牌種別カウント
+   * @param hasMelds 副露があるかどうか
    */
-  public calculateChitoitsuShanten(hand: Hand): number {
+  public calculateChitoitsuShanten(handTileCount: TileCount, hasMelds: boolean): number {
     // 副露がある場合は七対子は成立しない
-    if (!hand.canUseSpecialHands()) {
+    if (hasMelds) {
       return Infinity;
     }
-    
-    const handTileCount = hand.getTileCount();
     
     let pairs = 0;      // 対子の数
     
@@ -472,15 +464,14 @@ export class ShantenCalculator {
 
   /**
    * 国士無双のシャンテン数を計算
-   * @param hand 手牌オブジェクト
+   * @param handTileCount 手牌の牌種別カウント
+   * @param hasMelds 副露があるかどうか
    */
-  public calculateKokushiShanten(hand: Hand): number {
+  public calculateKokushiShanten(handTileCount: TileCount, hasMelds: boolean): number {
     // 副露がある場合は国士無双は成立しない
-    if (!hand.canUseSpecialHands()) {
+    if (hasMelds) {
       return Infinity;
     }
-    
-    const handTileCount = hand.getTileCount();
     
     let kinds = 0;  // 異なり種類数
     let toitsu = 0;  // 対子数
