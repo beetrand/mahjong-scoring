@@ -110,7 +110,7 @@ export interface BonusPoints {
 
 // 手牌オプション（Component配列を使用）
 export interface HandOptions {
-  drawnTile: string;        // ツモ牌（和了時は和了牌、非和了時も意味を持つ）
+  drawnTile: string | null;        // ツモ牌（和了時は和了牌、非和了時も意味を持つ、nullの場合は自摸なし）
   isTsumo: boolean;
   isRiichi?: boolean;
   gameContext: GameContext;

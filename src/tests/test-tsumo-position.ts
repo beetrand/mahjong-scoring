@@ -36,7 +36,7 @@ function testTsumoPosition(): void {
   const analysis1 = analyzer.analyzeWinning(hand1);
   console.log(`  和了: ${analysis1.isWinning}`);
   if (analysis1.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis1.tsumoAnalysis.tsumoTile.toString()}`);
+    console.log(`  ツモ牌: ${analysis1.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
     console.log(`  位置数: ${analysis1.tsumoAnalysis.positions.length}`);
     console.log(`  待ちタイプ: ${analysis1.tsumoAnalysis.waitTypes.join(', ')}`);
     
@@ -64,7 +64,7 @@ function testTsumoPosition(): void {
   const analysis2 = analyzer.analyzeWinning(hand2);
   console.log(`  和了: ${analysis2.isWinning}`);
   if (analysis2.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis2.tsumoAnalysis.tsumoTile.toString()}`);
+    console.log(`  ツモ牌: ${analysis2.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
     console.log(`  位置数: ${analysis2.tsumoAnalysis.positions.length}`);
     console.log(`  待ちタイプ: ${analysis2.tsumoAnalysis.waitTypes.join(', ')}`);
     
@@ -93,7 +93,7 @@ function testTsumoPosition(): void {
   const analysis3 = analyzer.analyzeWinning(hand3);
   console.log(`  和了: ${analysis3.isWinning}`);
   if (analysis3.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis3.tsumoAnalysis.tsumoTile.toString()}`);
+    console.log(`  ツモ牌: ${analysis3.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
     console.log(`  位置数: ${analysis3.tsumoAnalysis.positions.length}`);
     console.log(`  待ちタイプ: ${analysis3.tsumoAnalysis.waitTypes.join(', ')}`);
     
@@ -122,7 +122,7 @@ function testTsumoPosition(): void {
   const analysis4 = analyzer.analyzeWinning(hand4);
   console.log(`  和了: ${analysis4.isWinning}`);
   if (analysis4.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis4.tsumoAnalysis.tsumoTile.toString()}`);
+    console.log(`  ツモ牌: ${analysis4.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
     console.log(`  位置数: ${analysis4.tsumoAnalysis.positions.length}`);
     console.log(`  待ちタイプ: ${analysis4.tsumoAnalysis.waitTypes.join(', ')}`);
     

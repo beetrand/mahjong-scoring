@@ -353,7 +353,7 @@ export class Component {
  */
 export interface ComponentCombination {
   components: Component[];  // 全ての面子と対子（門前・副露の区別はComponent.isConcealedで管理）
-  winningTile: Tile;       // 和了牌
+  winningTile: Tile | null; // 和了牌（nullの場合は自摸なし）
 }
 
 /**

@@ -7,31 +7,40 @@ import { Component } from './component';
 import type { HandOptions, GameContext } from './types';
 
 export class Hand {
-  public readonly tiles: Tile[];
+  public tiles: Tile[];
   public readonly openMelds: Component[];
-  public readonly drawnTile: Tile;      // ツモ牌（和了時は和了牌、非和了時も意味を持つ）
+  public drawnTile: Tile | null;      // ツモ牌（和了時は和了牌、非和了時も意味を持つ）
   public readonly isTsumo: boolean;
   public readonly isRiichi: boolean;
   public readonly gameContext: GameContext;
   
   // シャンテン計算用牌種別カウント（TileCountオブジェクト）
-  public readonly tileCount: TileCount;
+  private _tileCount: TileCount;
+
+  /**
+   * 牌種別カウントを取得（読み取り専用）
+   */
+  public get tileCount(): TileCount {
+    return this._tileCount.clone();
+  }
 
   constructor(tiles: Tile[], openMelds: Component[], options: HandOptions) {
     this.tiles = tiles;
     this.openMelds = openMelds;
-    this.drawnTile = Tile.fromString(options.drawnTile);
+    this.drawnTile = options.drawnTile ? Tile.fromString(options.drawnTile) : null;
     this.isTsumo = options.isTsumo;
     this.isRiichi = options.isRiichi || false;
     this.gameContext = options.gameContext;
     
     // 牌種別カウントを事前計算
-    this.tileCount = this.createTileCount();
+    this._tileCount = this.createTileCount();
     
-    // ツモ牌が手牌に含まれているか検証
-    const hasDrawnTile = this.tiles.some(tile => tile.equalsIgnoreRed(this.drawnTile));
-    if (!hasDrawnTile) {
-      throw new Error(`Drawn tile ${this.drawnTile.toString()} not found in hand`);
+    // ツモ牌が指定されている場合、手牌に含まれているか検証
+    if (this.drawnTile) {
+      const hasDrawnTile = this.tiles.some(tile => tile.equals(this.drawnTile!));
+      if (!hasDrawnTile) {
+        throw new Error(`Drawn tile ${this.drawnTile.toString()} not found in hand`);
+      }
     }
   }
 
@@ -104,7 +113,7 @@ export class Hand {
     let tsumoRemoved = false;
     
     for (const tile of tiles) {
-      if (!tsumoRemoved && tile.equals(this.drawnTile)) {
+      if (!tsumoRemoved && this.drawnTile && tile.equals(this.drawnTile)) {
         tsumoRemoved = true;
         continue;
       }
@@ -176,12 +185,57 @@ export class Hand {
    * @param excludeTsumoTile ツモ牌を除外するかどうか（デフォルト: false）
    */
   public getTileCount(excludeTsumoTile: boolean = false): TileCount {
-    if (!excludeTsumoTile) {
-      return this.tileCount.clone(); // コピーを返して不変性を保持
+    if (!excludeTsumoTile || !this.drawnTile) {
+      return this._tileCount.clone(); // コピーを返して不変性を保持
     }
     
     // ツモ牌を除外した新しいTileCountを作成
     return this.createTileCount(this.drawnTile);
+  }
+
+  /**
+   * 牌種別カウントを更新（内部用）
+   */
+  private updateTileCount(): void {
+    this._tileCount = this.createTileCount();
+  }
+
+  /**
+   * 牌を捨てる
+   * @param tileToDiscard 捨てる牌
+   */
+  public discard(tileToDiscard: Tile): void {
+    // 手牌から指定された牌を1枚除去
+    const tileIndex = this.tiles.findIndex(tile => tile.equals(tileToDiscard));
+    if (tileIndex === -1) {
+      throw new Error(`Tile ${tileToDiscard.toString()} not found in hand`);
+    }
+    
+    // 牌を除去
+    this.tiles.splice(tileIndex, 1);
+    
+    // ツモ牌が捨てられた場合、ツモ牌をnullに設定
+    if (this.drawnTile && this.drawnTile.equals(tileToDiscard)) {
+      this.drawnTile = null;
+    }
+    
+    // 牌種別カウントを更新
+    this.updateTileCount();
+  }
+
+  /**
+   * 牌をツモる
+   * @param tileToAdd ツモる牌
+   */
+  public draw(tileToAdd: Tile): void {
+    // 手牌に牌を追加
+    this.tiles.push(tileToAdd);
+    this.tiles.sort(Tile.compare);
+    // 新しい牌をツモ牌として設定
+    this.drawnTile = tileToAdd;
+    
+    // 牌種別カウントを更新
+    this.updateTileCount();
   }
 
 

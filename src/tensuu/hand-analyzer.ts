@@ -53,7 +53,7 @@ export interface TsumoTilePosition {
  * ツモ牌分析結果
  */
 export interface TsumoAnalysisResult {
-  tsumoTile: Tile;             // ツモ牌
+  tsumoTile: Tile | null;      // ツモ牌（nullの場合は自摸なし）
   positions: TsumoTilePosition[]; // 全ての可能な位置
   waitTypes: WaitType[];       // 統合された待ちタイプ一覧
 }
@@ -193,6 +193,15 @@ export class HandAnalyzer {
     const tsumoTile = hand.drawnTile;
     const positions: TsumoTilePosition[] = [];
     
+    // ツモ牌がない場合は空の結果を返す
+    if (!tsumoTile) {
+      return {
+        tsumoTile: null,
+        positions: [],
+        waitTypes: []
+      };
+    }
+    
     // 14枚での和了形面子構成を取得
     const winningResult = this.shantenCalculator.calculateShanten(hand, false);
     
@@ -299,6 +308,11 @@ export class HandAnalyzer {
 
     const winningTileInfos: WinningTileInfo[] = [];
     const drawnTile = hand.drawnTile;
+
+    // ツモ牌がない場合は空配列を返す
+    if (!drawnTile) {
+      return [];
+    }
 
     // 待ち牌にツモ牌が含まれているか確認
     const isValidWinningTile = tenpaiAnalysis.waitingTiles.some(tile => tile.equals(drawnTile));
