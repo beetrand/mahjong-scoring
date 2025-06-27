@@ -69,8 +69,6 @@ class DebugMahjongGame extends SimpleMahjongGame {
 async function debugGameTest() {
   console.log('=== デバッグゲーム表示テスト ===\n');
   
-  const debugGame = new DebugMahjongGame();
-  
   // 手動でゲーム状態を設定
   console.log('手動でゲーム状態を設定してテストします...\n');
   
@@ -79,7 +77,7 @@ async function debugGameTest() {
     console.log(`\n--- テスト ${i} ---`);
     
     // 新しいゲームを作成
-    const testGame = new DebugMahjongGame();
+    new DebugMahjongGame();
     
     // デバッグ表示を実行
     // testGame.debugDisplayHandWithNumbers();

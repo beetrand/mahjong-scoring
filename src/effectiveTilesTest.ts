@@ -73,7 +73,6 @@ testCases.forEach((testCase, index) => {
     const result = effectiveTilesCalculator.calculateEffectiveTiles(hand);
     
     console.log(`現在のシャンテン数: ${result.currentShanten}`);
-    console.log(`最適手牌タイプ: ${result.bestHandType}`);
     console.log(`有効牌数: ${result.tiles.length}`);
     
     if (result.tiles.length > 0) {

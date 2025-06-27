@@ -20,7 +20,6 @@ export interface EffectiveTileDetails {
 export interface EffectiveTilesResult {
   tiles: Tile[];                           // 有効牌一覧
   details: EffectiveTileDetails[];         // 詳細情報
-  bestHandType: HandType;                  // 最適手牌タイプ
   currentShanten: number;                  // 現在のシャンテン数
 }
 
@@ -39,26 +38,7 @@ export class EffectiveTilesCalculator {
    * 有効牌を計算（メインメソッド）
    */
   public calculateEffectiveTiles(hand: Hand): EffectiveTilesResult {
-    // ツモ牌を除外した13枚でのシャンテン計算
-    const shantenResult = this.shantenCalculator.calculateShanten(hand, true); // excludeTsumoTile = true
-    const bestShanten = shantenResult.shanten;
-    const bestHandType = shantenResult.handType;
 
-    // 有効牌を計算
-    const effectiveTiles = this.findEffectiveTiles(hand);
-    
-    return {
-      tiles: effectiveTiles.map(detail => detail.tile),
-      details: effectiveTiles,
-      bestHandType,
-      currentShanten: bestShanten
-    };
-  }
-
-  /**
-   * 有効牌を実際に検索
-   */
-  private findEffectiveTiles(hand: Hand): EffectiveTileDetails[] {
     const details: EffectiveTileDetails[] = [];
     
     // 現在のシャンテン数を各手牌タイプで計算（ツモ牌除外）
@@ -120,11 +100,15 @@ export class EffectiveTilesCalculator {
         }
       }
     }
-    
-    // 重複を除去（同じ牌で複数の手牌タイプに有効な場合は任意の1つを採用）
-    return this.deduplicateEffectiveTiles(details);
+  
+    const effectiveTiles  =  this.deduplicateEffectiveTiles(details);
+    return {
+      tiles: effectiveTiles.map(detail => detail.tile),
+      details: effectiveTiles,
+      currentShanten: minShanten
+    };
   }
-
+  
    /**
    * 有効牌の重複を除去
    */

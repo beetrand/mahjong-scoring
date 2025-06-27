@@ -1,12 +1,12 @@
-// ツモ牌位置分析のテスト
+// 新しいHandAnalyzerのテスト
 
 import { Hand } from '../common/hand';
 import { Tile } from '../common/tile';
 import { HandAnalyzer } from '../tensuu/hand-analyzer';
 import type { Wind } from '../common/types';
 
-function testTsumoPosition(): void {
-  console.log('=== ツモ牌位置分析テスト ===\n');
+function testNewHandAnalyzer(): void {
+  console.log('=== 新しいHandAnalyzerテスト ===\n');
   
   const analyzer = new HandAnalyzer();
   const gameContext = {
@@ -35,14 +35,10 @@ function testTsumoPosition(): void {
   
   const analysis1 = analyzer.analyzeWinning(hand1);
   console.log(`  和了: ${analysis1.isWinning}`);
-  if (analysis1.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis1.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
-    console.log(`  位置数: ${analysis1.tsumoAnalysis.positions.length}`);
-    console.log(`  待ちタイプ: ${analysis1.tsumoAnalysis.waitTypes.join(', ')}`);
-    
-    analysis1.tsumoAnalysis.positions.forEach((pos, i) => {
-      console.log(`    位置${i+1}: 構成${pos.compositionIndex}-面子${pos.componentIndex}-位置${pos.positionInComponent} (${pos.waitType})`);
-    });
+  if (analysis1.winningInfo) {
+    console.log(`  和了牌: ${analysis1.winningInfo.winningTile.toString()}`);
+    console.log(`  待ちタイプ: ${analysis1.winningInfo.waitTypes.join(', ')}`);
+    console.log(`  面子構成数: ${analysis1.winningInfo.compositions.length}`);
   }
   
   // テスト2: 両面待ち（順子完成）
@@ -63,14 +59,17 @@ function testTsumoPosition(): void {
   
   const analysis2 = analyzer.analyzeWinning(hand2);
   console.log(`  和了: ${analysis2.isWinning}`);
-  if (analysis2.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis2.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
-    console.log(`  位置数: ${analysis2.tsumoAnalysis.positions.length}`);
-    console.log(`  待ちタイプ: ${analysis2.tsumoAnalysis.waitTypes.join(', ')}`);
+  if (analysis2.winningInfo) {
+    console.log(`  和了牌: ${analysis2.winningInfo.winningTile.toString()}`);
+    console.log(`  待ちタイプ: ${analysis2.winningInfo.waitTypes.join(', ')}`);
     
-    analysis2.tsumoAnalysis.positions.forEach((pos, i) => {
-      console.log(`    位置${i+1}: 構成${pos.compositionIndex}-面子${pos.componentIndex}-位置${pos.positionInComponent} (${pos.waitType})`);
-      console.log(`      Component: ${pos.component.type} [${pos.component.tiles.map(t => t.toString()).join(' ')}]`);
+    // 面子構成の詳細表示
+    analysis2.winningInfo.compositions.forEach((comp, i) => {
+      console.log(`  構成${i+1}:`);
+      console.log(`    手牌タイプ: ${comp.handType}`);
+      console.log(`    和了牌位置: 面子${comp.winningTilePosition.componentIndex}, 位置${comp.winningTilePosition.positionInComponent}`);
+      const winningComponent = comp.components[comp.winningTilePosition.componentIndex];
+      console.log(`    該当面子: ${winningComponent.type} [${winningComponent.tiles.map(t => t.toString()).join(' ')}]`);
     });
   }
   
@@ -92,48 +91,61 @@ function testTsumoPosition(): void {
   
   const analysis3 = analyzer.analyzeWinning(hand3);
   console.log(`  和了: ${analysis3.isWinning}`);
-  if (analysis3.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis3.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
-    console.log(`  位置数: ${analysis3.tsumoAnalysis.positions.length}`);
-    console.log(`  待ちタイプ: ${analysis3.tsumoAnalysis.waitTypes.join(', ')}`);
-    
-    analysis3.tsumoAnalysis.positions.forEach((pos, i) => {
-      console.log(`    位置${i+1}: 構成${pos.compositionIndex}-面子${pos.componentIndex}-位置${pos.positionInComponent} (${pos.waitType})`);
-      console.log(`      Component: ${pos.component.type} [${pos.component.tiles.map(t => t.toString()).join(' ')}]`);
-    });
+  if (analysis3.winningInfo) {
+    console.log(`  和了牌: ${analysis3.winningInfo.winningTile.toString()}`);
+    console.log(`  待ちタイプ: ${analysis3.winningInfo.waitTypes.join(', ')}`);
   }
   
-  // テスト4: 複数位置（同じ牌が複数箇所）
-  console.log('\n4. 複数位置（同じ牌が複数箇所）');
+  // テスト4: テンパイ分析（自摸なし）
+  console.log('\n4. テンパイ分析（自摸なし）');
   const tiles4 = [
-    new Tile('1m'), new Tile('1m'), new Tile('1m'),  // 111m刻子
+    new Tile('1m'), new Tile('1m'), new Tile('1m'),
     new Tile('4p'), new Tile('5p'), new Tile('6p'),
     new Tile('7s'), new Tile('8s'), new Tile('9s'),
-    new Tile('2z'), new Tile('2z'),
-    new Tile('1m'), new Tile('2m'), new Tile('3m')   // 123m順子
+    new Tile('2z'), new Tile('2z'), new Tile('2z'),
+    new Tile('1z')  // 単騎待ち
   ];
   
   const hand4 = Hand.create(tiles4, [], {
-    drawnTile: '1m',  // 1mが刻子と順子の両方にある
-    isTsumo: true,
+    drawnTile: null,
+    isTsumo: false,
     gameContext
   });
   
-  const analysis4 = analyzer.analyzeWinning(hand4);
-  console.log(`  和了: ${analysis4.isWinning}`);
-  if (analysis4.tsumoAnalysis) {
-    console.log(`  ツモ牌: ${analysis4.tsumoAnalysis.tsumoTile?.toString() || 'なし'}`);
-    console.log(`  位置数: ${analysis4.tsumoAnalysis.positions.length}`);
-    console.log(`  待ちタイプ: ${analysis4.tsumoAnalysis.waitTypes.join(', ')}`);
-    
-    analysis4.tsumoAnalysis.positions.forEach((pos, i) => {
-      console.log(`    位置${i+1}: 構成${pos.compositionIndex}-面子${pos.componentIndex}-位置${pos.positionInComponent} (${pos.waitType})`);
-      console.log(`      Component: ${pos.component.type} [${pos.component.tiles.map(t => t.toString()).join(' ')}]`);
-    });
+  const progress = analyzer.analyzeHandProgress(hand4);
+  console.log(`  テンパイ: ${progress.isTenpai}`);
+  console.log(`  シャンテン数: ${progress.shanten}`);
+  if (progress.isTenpai) {
+    console.log(`  待ち牌: ${progress.effectiveTiles.map(t => t.toString()).join(', ')}`);
+    console.log('  手牌タイプ別待ち牌:');
+    for (const [handType, tiles] of progress.effectiveTilesByHandType) {
+      console.log(`    ${handType}: ${tiles.map(t => t.toString()).join(', ')}`);
+    }
   }
   
-  console.log('\nテスト完了！');
+  // テスト5: 待ちタイプ分析
+  console.log('\n5. 待ちタイプ分析（複数待ち）');
+  const tiles5 = [
+    new Tile('1m'), new Tile('2m'), new Tile('3m'),
+    new Tile('2m'), new Tile('3m'), new Tile('4m'),
+    new Tile('7s'), new Tile('8s'), new Tile('9s'),
+    new Tile('2z'), new Tile('2z'), new Tile('2z'),
+    new Tile('4m')  // 14m待ち（両面待ち）
+  ];
+  
+  const hand5 = Hand.create(tiles5, [], {
+    drawnTile: null,
+    isTsumo: false,
+    gameContext
+  });
+  
+  const waitTypeAnalysis = analyzer.analyzeWaitTypes(hand5);
+  console.log(`  複数の待ちタイプ: ${waitTypeAnalysis.hasMultipleWaitTypes}`);
+  console.log('  待ち牌詳細:');
+  waitTypeAnalysis.waitingTiles.forEach(info => {
+    console.log(`    ${info.tile.toString()}: ${info.waitTypes.join(', ')}`);
+  });
 }
 
 // テスト実行
-testTsumoPosition();
+testNewHandAnalyzer();

@@ -1,4 +1,3 @@
-import { SimpleMahjongGame } from './simple-mahjong-game';
 import { Hand } from '../common/hand';
 import { Tile } from '../common/tile';
 import { EffectiveTilesCalculator } from '../tensuu/effective-tiles-calculator';

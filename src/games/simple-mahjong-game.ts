@@ -4,12 +4,12 @@ import { Tile } from '../common/tile';
 import { TileGenerator } from '../common/tile-generator';
 import { ShantenCalculator } from '../tensuu/shanten-calculator';
 import { HandAnalyzer } from '../tensuu/hand-analyzer';
-import { EffectiveTilesCalculator } from '../tensuu/effective-tiles-calculator';
+import { EffectiveTilesCalculator, type EffectiveTileDetails } from '../tensuu/effective-tiles-calculator';
 import type { Wind } from '../common/types';
 
 export class SimpleMahjongGame {
   private rl: readline.Interface;
-  private hand!: Hand;
+  protected hand!: Hand;
   private mountain: Tile[];
   private shantenCalculator: ShantenCalculator;
   private handAnalyzer: HandAnalyzer;
@@ -77,6 +77,12 @@ export class SimpleMahjongGame {
       
       console.log(`--- ターン ${this.turnCount} (山牌残り: ${this.mountain.length}枚) ---`);
       
+      // 捨て牌一覧を表示
+      if (this.discardedTiles.length > 0) {
+        console.log(`捨て牌: ${this.discardedTiles.map(t => this.formatTile(t)).join(' ')}`);
+        console.log('');
+      }
+      
       // 現在の手牌を表示
       this.displayHand();
       
@@ -95,7 +101,12 @@ export class SimpleMahjongGame {
       if (winAnalysis.isWinning) {
         console.log('\n🎉 和了！おめでとうございます！');
         console.log(`最終手牌: ${this.hand.getConcealedTiles().map(t => this.formatTile(t)).join(' ')}`);
-        console.log(this.hand);
+        
+        // 待ちタイプを表示
+        if (winAnalysis.winningInfo) {
+          const waitTypesStr = winAnalysis.winningInfo.waitTypes.map(wt => this.getWaitTypeName(wt)).join('・');
+          console.log(`待ちの種類: ${waitTypesStr}`);
+        }
         break;
       }
       
@@ -112,10 +123,6 @@ export class SimpleMahjongGame {
         console.log(`捨牌: ${this.formatTile(tileToDiscard)}`);
       }
       
-      // 捨て牌一覧を表示
-      if (this.discardedTiles.length > 0) {
-        console.log(`\n捨て牌: ${this.discardedTiles.map(t => this.formatTile(t)).join(' ')}`);
-      }
     }
     
     console.log('\n=== ゲーム終了 ===');
@@ -170,7 +177,6 @@ export class SimpleMahjongGame {
     
     // 自摸牌がある場合は右端に離して表示
     if (this.hand.drawnTile) {
-      const tsumoStr = this.hand.drawnTile.toString();
       const formattedTsumoStr = this.formatTile(this.hand.drawnTile);
       
       // 2スペースの区切りを追加
@@ -197,15 +203,40 @@ export class SimpleMahjongGame {
     console.log(`手牌タイプ: ${this.getHandTypeName(shantenResult.handType)}`);
     
     // 有効牌を表示（テンパイしていない場合のみ）
-    if (shantenResult.shanten > 0) {
+    if (shantenResult.shanten >= 0) {
       const effectiveResult = this.effectiveTilesCalculator.calculateEffectiveTiles(this.hand);
       
       if (effectiveResult.tiles.length > 0) {
         // 有効牌を種類別にグループ化
         const groupedTiles = this.groupTilesByType(effectiveResult.tiles);
         console.log(`有効牌: ${groupedTiles}`);
+        
+        // 複数の手牌タイプがある場合は表示
+        this.displayEffectiveTileDetails(effectiveResult.details);
       } else {
         console.log('有効牌: なし');
+      }
+    }
+  }
+
+  private displayEffectiveTileDetails(details: EffectiveTileDetails[]): void {
+    // 手牌タイプ別に有効牌をグループ化
+    const handTypeGroups = new Map<string, EffectiveTileDetails[]>();
+    
+    for (const detail of details) {
+      const handTypeName = this.getHandTypeName(detail.handType);
+      if (!handTypeGroups.has(handTypeName)) {
+        handTypeGroups.set(handTypeName, []);
+      }
+      handTypeGroups.get(handTypeName)!.push(detail);
+    }
+    
+    // 複数の手牌タイプがある場合のみ詳細を表示
+    if (handTypeGroups.size > 1) {
+      console.log('手牌タイプ別有効牌:');
+      for (const [handTypeName, typeDetails] of handTypeGroups) {
+        const tiles = typeDetails.map(d => this.formatTile(d.tile)).join(' ');
+        console.log(`  ${handTypeName}: ${tiles}`);
       }
     }
   }
@@ -219,13 +250,20 @@ export class SimpleMahjongGame {
     }
   }
 
-  private formatTile(tile: Tile): string {
+  private getWaitTypeName(waitType: string): string {
+    switch (waitType) {
+      case 'tanki': return '単騎待ち';
+      case 'ryanmen': return '両面待ち';
+      case 'kanchan': return '嵌張待ち';
+      case 'penchan': return '辺張待ち';
+      case 'shanpon': return '双碰待ち';
+      default: return waitType;
+    }
+  }
+
+  protected formatTile(tile: Tile): string {
     const str = tile.toString();
     
-    // 赤ドラを赤色で表示
-    if (tile.isRed) {
-      return `\x1b[31m${str}\x1b[0m`;
-    }
     
     // 数牌の色分け
     if (tile.suit === 'man') {
