@@ -1,9 +1,9 @@
 // 塔子から待ちタイプ判定のデバッグ
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { HandAnalyzer } from './src/tensuu/hand-analyzer';
-import { ComponentType } from './src/common/component';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { HandAnalyzer } from '../tensuu/hand-analyzer';
+import { ComponentType } from '../common/component';
 
 function debugTaatsuLogic() {
   console.log('=== 塔子から待ちタイプ判定のデバッグ ===\n');

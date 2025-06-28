@@ -1,8 +1,8 @@
 // 面子構成と有効牌の新構造テスト
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { HandAnalyzer } from './src/tensuu/hand-analyzer';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { HandAnalyzer } from '../tensuu/hand-analyzer';
 
 function testCompositionEffectiveTiles() {
   console.log('=== 面子構成と有効牌の新構造テスト ===\n');

@@ -1,6 +1,6 @@
 // HandParserのデバッグ
 
-import { HandParser } from './src/common/hand-parser';
+import { HandParser } from '../common/hand-parser';
 
 function debugParser() {
   console.log('=== HandParser デバッグ ===');

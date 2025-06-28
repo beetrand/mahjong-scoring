@@ -1,10 +1,10 @@
 // 待ちタイプ判定ロジックのデバッグ
 
-import { Hand } from './src/common/hand';
-import { HandAnalyzer } from './src/tensuu/hand-analyzer';
-import { HandParser } from './src/common/hand-parser';
-import { WaitType } from './src/common/types';
-import { ShantenCalculator } from './src/tensuu/shanten-calculator';
+import { Hand } from '../common/hand';
+import { HandAnalyzer } from '../tensuu/hand-analyzer';
+import { HandParser } from '../common/hand-parser';
+import { WaitType } from '../common/types';
+import { ShantenCalculator } from '../tensuu/shanten-calculator';
 
 function debugWaitTypeLogic() {
   console.log('=== 待ちタイプ判定ロジックのデバッグ ===\n');

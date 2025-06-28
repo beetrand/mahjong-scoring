@@ -1,8 +1,8 @@
 // 簡単な和了判定デバッグ
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { HandAnalyzer } from './src/tensuu/hand-analyzer';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { HandAnalyzer } from '../tensuu/hand-analyzer';
 
 function debugWinningSimple() {
   console.log('=== 簡単な和了判定デバッグ ===\n');

@@ -1,9 +1,9 @@
 // テンパイ状態での面子分解詳細ログ
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { ShantenCalculator } from './src/tensuu/shanten-calculator';
-import { HandAnalyzer } from './src/tensuu/hand-analyzer';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { ShantenCalculator } from '../tensuu/shanten-calculator';
+import { HandAnalyzer } from '../tensuu/hand-analyzer';
 
 function debugTenpaiDecomposition() {
   console.log('=== テンパイ状態での面子分解詳細ログ ===\n');

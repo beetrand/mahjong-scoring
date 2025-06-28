@@ -1,6 +1,6 @@
 // Tile.getSuitChar()メソッドのテスト
 
-import { Tile } from './src/common/tile';
+import { Tile } from '../common/tile';
 
 function testTileSuitChar() {
   console.log('=== Tile.getSuitChar()メソッドのテスト ===\n');

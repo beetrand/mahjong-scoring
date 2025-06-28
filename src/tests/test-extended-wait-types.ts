@@ -1,9 +1,9 @@
 // 拡張された待ちタイプ計算の総合テスト
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { HandAnalyzer } from './src/tensuu/hand-analyzer';
-import { EffectiveTilesCalculator } from './src/tensuu/effective-tiles-calculator';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { HandAnalyzer } from '../tensuu/hand-analyzer';
+import { EffectiveTilesCalculator } from '../tensuu/effective-tiles-calculator';
 
 function testExtendedWaitTypes() {
   console.log('=== 拡張された待ちタイプ計算の総合テスト ===\n');

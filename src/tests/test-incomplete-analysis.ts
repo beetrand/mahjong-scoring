@@ -1,9 +1,9 @@
 // 未完成部分分析のデバッグテスト
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { EffectiveTilesCalculator } from './src/tensuu/effective-tiles-calculator';
-import { ShantenCalculator } from './src/tensuu/shanten-calculator';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { EffectiveTilesCalculator } from '../tensuu/effective-tiles-calculator';
+import { ShantenCalculator } from '../tensuu/shanten-calculator';
 
 function testIncompleteAnalysis() {
   console.log('=== 未完成部分分析のデバッグテスト ===\n');

@@ -1,8 +1,8 @@
 // テンパイ時の面子構成確認
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { ShantenCalculator } from './src/tensuu/shanten-calculator';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { ShantenCalculator } from '../tensuu/shanten-calculator';
 
 function debugTenpaiCompositions() {
   console.log('=== テンパイ時の面子構成確認 ===\n');

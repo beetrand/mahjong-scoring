@@ -1,8 +1,8 @@
 // シャンテン計算で複数構成が正しく返されるかデバッグ
 
-import { Hand } from './src/common/hand';
-import { HandParser } from './src/common/hand-parser';
-import { ShantenCalculator } from './src/tensuu/shanten-calculator';
+import { Hand } from '../common/hand';
+import { HandParser } from '../common/hand-parser';
+import { ShantenCalculator } from '../tensuu/shanten-calculator';
 
 function debugShantenCompositions() {
   console.log('=== シャンテン計算の複数構成デバッグ ===\n');

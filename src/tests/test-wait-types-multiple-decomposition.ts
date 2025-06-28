@@ -1,10 +1,10 @@
 // 複数の面子分解パターンでの待ちタイプ判定テスト
 
-import { Hand } from './src/common/hand';
-import { Tile } from './src/common/tile';
-import { HandAnalyzer } from './src/tensuu/hand-analyzer';
-import { WaitType } from './src/common/types';
-import { HandParser } from './src/common/hand-parser';
+import { Hand } from '../common/hand';
+import { Tile } from '../common/tile';
+import { HandAnalyzer } from '../tensuu/hand-analyzer';
+import { WaitType } from '../common/types';
+import { HandParser } from '../common/hand-parser';
 
 function testMultipleDecompositionWaitTypes() {
   const analyzer = new HandAnalyzer();
