@@ -76,20 +76,7 @@ testCases.forEach((testCase, index) => {
     console.log(`有効牌数: ${result.tiles.length}`);
     
     if (result.tiles.length > 0) {
-      console.log(`有効牌: ${result.tiles.map(tile => tile.toString()).join(', ')}`);
-      
-      // 詳細情報表示
-      const handTypeGroups = new Map<string, string[]>();
-      result.details.forEach(detail => {
-        if (!handTypeGroups.has(detail.handType)) {
-          handTypeGroups.set(detail.handType, []);
-        }
-        handTypeGroups.get(detail.handType)!.push(detail.tile.toString());
-      });
-      
-      handTypeGroups.forEach((tiles, handType) => {
-        console.log(`  ${handType}: ${tiles.join(', ')}`);
-      });
+      console.log(`有効牌: [${result.tiles.map(t => t.toString()).join(', ')}]`);
     } else {
       console.log('有効牌: なし');
     }

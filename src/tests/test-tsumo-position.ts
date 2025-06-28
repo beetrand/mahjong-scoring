@@ -37,8 +37,7 @@ function testNewHandAnalyzer(): void {
   console.log(`  和了: ${analysis1.isWinning}`);
   if (analysis1.winningInfo) {
     console.log(`  和了牌: ${analysis1.winningInfo.winningTile.toString()}`);
-    console.log(`  待ちタイプ: ${analysis1.winningInfo.waitTypes.join(', ')}`);
-    console.log(`  面子構成数: ${analysis1.winningInfo.compositions.length}`);
+    console.log(`  面子構成数: ${analysis1.winningInfo.compositionsWithWaitTypes.length}`);
   }
   
   // テスト2: 両面待ち（順子完成）
@@ -61,14 +60,12 @@ function testNewHandAnalyzer(): void {
   console.log(`  和了: ${analysis2.isWinning}`);
   if (analysis2.winningInfo) {
     console.log(`  和了牌: ${analysis2.winningInfo.winningTile.toString()}`);
-    console.log(`  待ちタイプ: ${analysis2.winningInfo.waitTypes.join(', ')}`);
-    
-    // 面子構成の詳細表示
-    analysis2.winningInfo.compositions.forEach((comp, i) => {
-      console.log(`  構成${i+1}:`);
-      console.log(`    手牌タイプ: ${comp.handType}`);
-      console.log(`    和了牌位置: 面子${comp.winningTilePosition.componentIndex}, 位置${comp.winningTilePosition.positionInComponent}`);
-      const winningComponent = comp.components[comp.winningTilePosition.componentIndex];
+    // 面子構成の詳細表示（新しい構造）
+    analysis2.winningInfo.compositionsWithWaitTypes.forEach((compWithWait, i) => {
+      console.log(`  構成${i+1} (${compWithWait.waitType}):`);
+      console.log(`    手牌タイプ: ${compWithWait.composition.handType}`);
+      console.log(`    和了牌位置: 面子${compWithWait.composition.winningTilePosition.componentIndex}, 位置${compWithWait.composition.winningTilePosition.positionInComponent}`);
+      const winningComponent = compWithWait.composition.components[compWithWait.composition.winningTilePosition.componentIndex];
       console.log(`    該当面子: ${winningComponent.type} [${winningComponent.tiles.map(t => t.toString()).join(' ')}]`);
     });
   }
@@ -93,7 +90,9 @@ function testNewHandAnalyzer(): void {
   console.log(`  和了: ${analysis3.isWinning}`);
   if (analysis3.winningInfo) {
     console.log(`  和了牌: ${analysis3.winningInfo.winningTile.toString()}`);
-    console.log(`  待ちタイプ: ${analysis3.winningInfo.waitTypes.join(', ')}`);
+    // 待ちタイプは構成から取得
+    const waitTypes = analysis3.winningInfo.compositionsWithWaitTypes.map(cwt => cwt.waitType);
+    console.log(`  待ちタイプ: ${waitTypes.join(', ')}`);
   }
   
   // テスト4: テンパイ分析（自摸なし）
@@ -117,10 +116,7 @@ function testNewHandAnalyzer(): void {
   console.log(`  シャンテン数: ${progress.shanten}`);
   if (progress.isTenpai) {
     console.log(`  待ち牌: ${progress.effectiveTiles.map(t => t.toString()).join(', ')}`);
-    console.log('  手牌タイプ別待ち牌:');
-    for (const [handType, tiles] of progress.effectiveTilesByHandType) {
-      console.log(`    ${handType}: ${tiles.map(t => t.toString()).join(', ')}`);
-    }
+    // 新しい形式では手牌タイプ別の分類は省略（シンプルな有効牌リストのみ）
   }
   
   // テスト5: 待ちタイプ分析

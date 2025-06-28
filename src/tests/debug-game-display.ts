@@ -1,4 +1,4 @@
-import { SimpleMahjongGame } from './simple-mahjong-game';
+import { SimpleMahjongGame } from '../games/simple-mahjong-game';
 
 // ゲーム表示のデバッグ版
 class DebugMahjongGame extends SimpleMahjongGame {

@@ -2,18 +2,14 @@ import * as readline from 'readline';
 import { Hand } from '../common/hand';
 import { Tile } from '../common/tile';
 import { TileGenerator } from '../common/tile-generator';
-import { ShantenCalculator } from '../tensuu/shanten-calculator';
 import { HandAnalyzer } from '../tensuu/hand-analyzer';
-import { EffectiveTilesCalculator, type EffectiveTileDetails } from '../tensuu/effective-tiles-calculator';
 import type { Wind } from '../common/types';
 
 export class SimpleMahjongGame {
   private rl: readline.Interface;
   protected hand!: Hand;
   private mountain: Tile[];
-  private shantenCalculator: ShantenCalculator;
   private handAnalyzer: HandAnalyzer;
-  private effectiveTilesCalculator: EffectiveTilesCalculator;
   private gameContext: any;
   private turnCount: number;
   private discardedTiles: Tile[];
@@ -24,9 +20,7 @@ export class SimpleMahjongGame {
       output: process.stdout
     });
     this.mountain = []
-    this.shantenCalculator = new ShantenCalculator();
     this.handAnalyzer = new HandAnalyzer();
-    this.effectiveTilesCalculator = new EffectiveTilesCalculator();
 
     this.gameContext = {
       roundWind: 1 as Wind,
@@ -104,7 +98,10 @@ export class SimpleMahjongGame {
         
         // 待ちタイプを表示
         if (winAnalysis.winningInfo) {
-          const waitTypesStr = winAnalysis.winningInfo.waitTypes.map(wt => this.getWaitTypeName(wt)).join('・');
+          // 和了時の待ちタイプを表示（新しい構造）
+          const waitTypes = winAnalysis.winningInfo.compositionsWithWaitTypes.map(cwt => cwt.waitType);
+          const uniqueWaitTypes = [...new Set(waitTypes)];
+          const waitTypesStr = uniqueWaitTypes.map(wt => this.getWaitTypeName(wt)).join('・');
           console.log(`待ちの種類: ${waitTypesStr}`);
         }
         break;
@@ -190,56 +187,69 @@ export class SimpleMahjongGame {
   }
 
   private displayShanten(): void {
-    const shantenResult = this.shantenCalculator.calculateShanten(this.hand);
+    // HandAnalyzerを使用して包括的な分析を実行
+    const handProgress = this.handAnalyzer.analyzeHandProgress(this.hand);
     
-    if (shantenResult.shanten === -1) {
+    if (handProgress.shanten === -1) {
       console.log('テンパイ！（和了形）');
-    } else if (shantenResult.shanten === 0) {
+    } else if (handProgress.shanten === 0) {
       console.log('テンパイ！');
+      
+      // テンパイ時の詳細情報を表示
+      this.displayTenpaiDetails(handProgress);
     } else {
-      console.log(`シャンテン数: ${shantenResult.shanten}`);
+      console.log(`シャンテン数: ${handProgress.shanten}`);
     }
     
-    console.log(`手牌タイプ: ${this.getHandTypeName(shantenResult.handType)}`);
+    console.log(`手牌タイプ: ${this.getHandTypeName(handProgress.handType)}`);
     
     // 有効牌を表示（テンパイしていない場合のみ）
-    if (shantenResult.shanten >= 0) {
-      const effectiveResult = this.effectiveTilesCalculator.calculateEffectiveTiles(this.hand);
-      
-      if (effectiveResult.tiles.length > 0) {
+    if (handProgress.shanten > 0) {
+      if (handProgress.effectiveTiles.length > 0) {
         // 有効牌を種類別にグループ化
-        const groupedTiles = this.groupTilesByType(effectiveResult.tiles);
+        const groupedTiles = this.groupTilesByType(handProgress.effectiveTiles);
         console.log(`有効牌: ${groupedTiles}`);
-        
-        // 複数の手牌タイプがある場合は表示
-        this.displayEffectiveTileDetails(effectiveResult.details);
       } else {
         console.log('有効牌: なし');
       }
     }
   }
 
-  private displayEffectiveTileDetails(details: EffectiveTileDetails[]): void {
-    // 手牌タイプ別に有効牌をグループ化
-    const handTypeGroups = new Map<string, EffectiveTileDetails[]>();
-    
-    for (const detail of details) {
-      const handTypeName = this.getHandTypeName(detail.handType);
-      if (!handTypeGroups.has(handTypeName)) {
-        handTypeGroups.set(handTypeName, []);
+  private displayTenpaiDetails(handProgress: any): void {
+    if (!handProgress.tenpaiEffectiveTiles) {
+      // 通常の有効牌表示
+      if (handProgress.effectiveTiles.length > 0) {
+        const groupedTiles = this.groupTilesByType(handProgress.effectiveTiles);
+        console.log(`待ち牌: ${groupedTiles}`);
       }
-      handTypeGroups.get(handTypeName)!.push(detail);
+      return;
     }
     
-    // 複数の手牌タイプがある場合のみ詳細を表示
-    if (handTypeGroups.size > 1) {
-      console.log('手牌タイプ別有効牌:');
-      for (const [handTypeName, typeDetails] of handTypeGroups) {
-        const tiles = typeDetails.map(d => this.formatTile(d.tile)).join(' ');
-        console.log(`  ${handTypeName}: ${tiles}`);
-      }
+    const tenpaiInfo = handProgress.tenpaiEffectiveTiles;
+    
+    // 待ち牌を表示
+    if (tenpaiInfo.allEffectiveTiles.length > 0) {
+      const groupedTiles = this.groupTilesByType(tenpaiInfo.allEffectiveTiles);
+      console.log(`待ち牌: ${groupedTiles}`);
+    }
+    
+    // 詳細な待ち情報を表示
+    if (tenpaiInfo.compositionsWithEffectiveTiles.length > 0) {
+      console.log('待ちの詳細:');
+      
+      tenpaiInfo.compositionsWithEffectiveTiles.forEach((comp: any) => {
+        if (comp.componentsWithEffectiveTiles.length > 0) {
+          comp.componentsWithEffectiveTiles.forEach((compInfo: any) => {
+            const waitTypeName = this.getWaitTypeName(compInfo.waitType);
+            const effectiveTilesStr = compInfo.effectiveTiles.map((t: any) => this.formatTile(t)).join(' ');
+            console.log(`  ${waitTypeName}: ${effectiveTilesStr}`);
+          });
+        }
+      });
     }
   }
+
+  // 古いdisplayEffectiveTileDetailsメソッドは削除（新しいシンプルな形式を使用）
 
   private getHandTypeName(handType: string): string {
     switch (handType) {

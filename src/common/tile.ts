@@ -104,14 +104,25 @@ export class Tile {
     return new Tile(str);
   }
 
+  /**
+   * スートの短縮文字を取得（数牌のみ）
+   */
+  public getSuitChar(): string | null {
+    switch (this.suit) {
+      case 'man': return 'm';
+      case 'pin': return 'p';
+      case 'sou': return 's';
+      default: return null; // 字牌の場合はnull
+    }
+  }
+
   public toString(): string {
     if (this.suit === 'wind') {
       return `${this.value}z`;
     } else if (this.suit === 'dragon') {
       return `${this.value + 4}z`;
     } else {
-      const suitChar = this.suit === 'man' ? 'm' : 
-                       this.suit === 'pin' ? 'p' : 's';
+      const suitChar = this.getSuitChar();
       return `${this.value}${suitChar}${this.isRed ? 'r' : ''}`;
     }
   }

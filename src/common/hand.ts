@@ -205,6 +205,8 @@ export class Hand {
    * @param tileToDiscard 捨てる牌
    */
   public discard(tileToDiscard: Tile): void {
+
+    
     // 手牌から指定された牌を1枚除去
     const tileIndex = this.tiles.findIndex(tile => tile.equals(tileToDiscard));
     if (tileIndex === -1) {
@@ -213,11 +215,13 @@ export class Hand {
     
     // 牌を除去
     this.tiles.splice(tileIndex, 1);
+  
+
+    // 自摸牌をnullに設定
+    this.drawnTile = null;
     
-    // ツモ牌が捨てられた場合、ツモ牌をnullに設定
-    if (this.drawnTile && this.drawnTile.equals(tileToDiscard)) {
-      this.drawnTile = null;
-    }
+    // 手牌をソート
+    this.tiles.sort(Tile.compare);
     
     // 牌種別カウントを更新
     this.updateTileCount();

@@ -4,7 +4,7 @@ import { Hand } from '../common/hand';
 import { Tile } from '../common/tile';
 import { Component, ComponentType } from '../common/component';
 import { HandType, WaitType } from '../common/types';
-import { EffectiveTilesCalculator, type EffectiveTileDetails } from './effective-tiles-calculator';
+import { EffectiveTilesCalculator, type TenpaiEffectiveTilesResult } from './effective-tiles-calculator';
 import { ShantenCalculator, type MentsuComposition } from './shanten-calculator';
 
 /**
@@ -15,8 +15,7 @@ export interface WinningAnalysisResult {
   handProgress: HandProgressResult;  // 常に手牌進行情報を含む
   winningInfo?: {
     winningTile: Tile;
-    waitTypes: WaitType[];
-    compositions: WinningComposition[];
+    compositionsWithWaitTypes: WinningCompositionWithWaitType[];
   };
 }
 
@@ -30,11 +29,12 @@ export interface HandProgressResult {
   
   // 有効牌情報
   effectiveTiles: Tile[];                          // 有効牌一覧
-  effectiveTilesByHandType: Map<HandType, Tile[]>; // 手牌タイプ別の有効牌
   
-  // 詳細情報
-  effectiveTileDetails: EffectiveTileDetails[];    // 各有効牌の詳細
-  mentsuCompositions?: MentsuComposition[];         // 面子構成（通常手の場合）
+  // 詳細情報（通常手の場合）
+  mentsuCompositions?: MentsuComposition[];         // 面子構成
+  
+  // テンパイ時の詳細情報
+  tenpaiEffectiveTiles?: TenpaiEffectiveTilesResult;
   
   // 便利なフラグ
   isWinning: boolean;    // shanten === -1
@@ -83,6 +83,14 @@ export interface WinningComposition {
 }
 
 /**
+ * 和了時の面子構成と待ちタイプのセット
+ */
+export interface WinningCompositionWithWaitType {
+  composition: WinningComposition;
+  waitType: WaitType;
+}
+
+/**
  * 手牌分析クラス
  * EffectiveTilesCalculatorを使用したシンプルな和了判定と待ち分析
  */
@@ -116,8 +124,13 @@ export class HandAnalyzer {
    * 包括的な和了分析
    */
   public analyzeWinning(hand: Hand): WinningAnalysisResult {
-    const progress = this.analyzeHandProgress(hand);
-    const isWinning = this.isWinning(hand);
+    const progress = this.
+    analyzeHandProgress(hand);
+    
+    // 和了判定（progressを再利用）
+    const isWinning = hand.drawnTile && 
+                      progress.isTenpai && 
+                      progress.effectiveTiles.some(tile => tile.equals(hand.drawnTile!));
     
     if (!isWinning) {
       return {
@@ -127,16 +140,14 @@ export class HandAnalyzer {
     }
 
     // 和了の場合
-    const waitTypes = this.analyzeWaitTypesForWinningTile(hand, hand.drawnTile!);
-    const compositions = this.analyzeWinningComposition(hand);
+    const compositionsWithWaitTypes = this.analyzeWinningCompositionsWithWaitTypes(hand.drawnTile!, progress);
 
     return {
       isWinning: true,
       handProgress: progress,
       winningInfo: {
         winningTile: hand.drawnTile!,
-        waitTypes,
-        compositions
+        compositionsWithWaitTypes
       }
     };
   }
@@ -149,25 +160,21 @@ export class HandAnalyzer {
     // 自摸抜きでシャンテン数を計算
     const shantenResult = this.shantenCalculator.calculateShanten(hand, true);
     
-    // 有効牌を計算（シャンテン数に関わらず）
+    // 有効牌を計算
     const effectiveResult = this.effectiveTilesCalculator.calculateEffectiveTiles(hand);
     
-    // 手牌タイプ別に有効牌を整理
-    const effectiveTilesByHandType = new Map<HandType, Tile[]>();
-    for (const detail of effectiveResult.details) {
-      if (!effectiveTilesByHandType.has(detail.handType)) {
-        effectiveTilesByHandType.set(detail.handType, []);
-      }
-      effectiveTilesByHandType.get(detail.handType)!.push(detail.tile);
+    // テンパイの場合はテンパイ専用のメソッドを呼び出す
+    let tenpaiEffectiveTiles: TenpaiEffectiveTilesResult | undefined;
+    if (shantenResult.shanten === 0) {
+      tenpaiEffectiveTiles = this.effectiveTilesCalculator.calculateTenpaiEffectiveTiles(hand) || undefined;
     }
     
     return {
       shanten: shantenResult.shanten,
       handType: shantenResult.handType,
       effectiveTiles: effectiveResult.tiles,
-      effectiveTilesByHandType,
-      effectiveTileDetails: effectiveResult.details,
       mentsuCompositions: shantenResult.optimalStates,
+      tenpaiEffectiveTiles,
       
       // 便利なフラグ
       isWinning: shantenResult.shanten === -1,
@@ -193,16 +200,14 @@ export class HandAnalyzer {
     const allWaitTypes = new Set<WaitType>();
 
     // 各待ち牌について待ちの種類を判定
-    for (const [handType, tiles] of progress.effectiveTilesByHandType) {
-      for (const tile of tiles) {
-        const waitTypes = this.determineWaitTypesForTile(hand, tile, handType);
-        waitingTileInfos.push({
-          tile,
-          waitTypes,
-          handTypes: [handType]
-        });
-        waitTypes.forEach(wt => allWaitTypes.add(wt));
-      }
+    for (const tile of progress.effectiveTiles) {
+      const waitTypes = this.determineWaitTypesForTile(tile, progress.handType, progress);
+      waitingTileInfos.push({
+        tile,
+        waitTypes,
+        handTypes: [progress.handType]
+      });
+      waitTypes.forEach(wt => allWaitTypes.add(wt));
     }
 
     return {
@@ -212,41 +217,115 @@ export class HandAnalyzer {
   }
 
   /**
-   * 和了時の面子構成分析
+   * 和了時の面子構成と待ちタイプを同時に分析
    */
-  private analyzeWinningComposition(hand: Hand): WinningComposition[] {
-    if (!hand.drawnTile) {
-      return [];
+   private analyzeWinningCompositionsWithWaitTypes(winningTile: Tile, progress: HandProgressResult): WinningCompositionWithWaitType[] {
+    // 特殊形の場合
+    if (progress.handType === HandType.CHITOITSU || progress.handType === HandType.KOKUSHI) {
+      return this.analyzeSpecialHandWinning();
     }
 
-    const compositions: WinningComposition[] = [];
+    // 通常手の場合
+    const results: WinningCompositionWithWaitType[] = [];
     
-    // 14枚での和了形を取得
-    const shantenResult = this.shantenCalculator.calculateShanten(hand, false);
-    
-    if (shantenResult.shanten !== -1 || !shantenResult.optimalStates) {
-      return compositions;
+    if (!progress.mentsuCompositions) {
+      return results;
     }
 
-    // 各面子構成パターンで自摸牌の位置を特定
-    for (const mentsuComposition of shantenResult.optimalStates) {
-      const position = this.findTileInComposition(hand.drawnTile, mentsuComposition);
-      if (position) {
-        compositions.push({
-          handType: shantenResult.handType,
-          components: mentsuComposition.components,
-          winningTilePosition: position
-        });
+    // テンパイ状態の各面子構成で自摸牌が入る塔子を特定
+    for (const tenpaiComposition of progress.mentsuCompositions) {
+      // 自摸牌が入る塔子を見つける
+      for (let i = 0; i < tenpaiComposition.components.length; i++) {
+        const component = tenpaiComposition.components[i];
+        
+        if (component.type === ComponentType.TAATSU) {
+          const waitType = this.determineWaitTypeFromTaatsu(component, winningTile);
+          
+          if (waitType) {
+            // 塔子を完成面子に変換
+            const completedComponent = this.convertTaatsuToCompletedMentsu(component, winningTile);
+            
+            if (completedComponent) {
+              // 完成した面子構成を作成
+              const completedComponents = [...tenpaiComposition.components];
+              completedComponents[i] = completedComponent;
+              
+              const winningComposition: WinningComposition = {
+                handType: progress.handType,
+                components: completedComponents,
+                winningTilePosition: this.findWinningTilePositionInComposition(completedComponents, winningTile, i)!
+              };
+              
+              results.push({
+                composition: winningComposition,
+                waitType
+              });
+            }
+          }
+        }
       }
     }
 
-    return compositions;
+    return results;
+  }
+
+  /**
+   * 特殊形（七対子・国士無双）の和了分析
+   */
+  private analyzeSpecialHandWinning(): WinningCompositionWithWaitType[] {
+    // 七対子・国士無双は常にタンキ待ち
+    // 実装の詳細は後で追加
+    return [];
+  }
+
+  /**
+   * 塔子を完成面子に変換
+   */
+  private convertTaatsuToCompletedMentsu(taatsu: Component, winningTile: Tile): Component | null {
+    if (taatsu.tiles.length !== 2) {
+      return null;
+    }
+
+    const newTiles = [...taatsu.tiles, winningTile].sort(Tile.compare);
+    
+    // 順子になるかチェック
+    if (this.isSequence(newTiles)) {
+      return new Component(newTiles, ComponentType.SEQUENCE, taatsu.isConcealed, taatsu.meldInfo);
+    }
+    
+    return null;
+  }
+
+  /**
+   * 3枚の牌が順子かどうかチェック
+   */
+  private isSequence(tiles: Tile[]): boolean {
+    if (tiles.length !== 3) return false;
+    
+    const suit = tiles[0].suit;
+    if (!tiles.every(t => t.suit === suit)) return false;
+    
+    const values = tiles.map(t => t.value).sort((a, b) => a - b);
+    return values[1] - values[0] === 1 && values[2] - values[1] === 1;
+  }
+
+  /**
+   * 面子構成全体での和了牌の位置を特定
+   */
+  private findWinningTilePositionInComposition(components: Component[], winningTile: Tile, targetComponentIndex: number): { componentIndex: number, positionInComponent: number } | null {
+    const component = components[targetComponentIndex];
+    for (let i = 0; i < component.tiles.length; i++) {
+      if (component.tiles[i].equals(winningTile)) {
+        return { componentIndex: targetComponentIndex, positionInComponent: i };
+      }
+    }
+    return null;
   }
 
   /**
    * 特定の牌に対する待ちタイプを判定
    */
-  private determineWaitTypesForTile(hand: Hand, waitingTile: Tile, handType: HandType): WaitType[] {
+  private determineWaitTypesForTile(waitingTile: Tile, handType: HandType, progress: HandProgressResult): WaitType[] {
     // 特殊形の場合
     if (handType === HandType.CHITOITSU) {
       return [WaitType.TANKI]; // 七対子は単騎待ち
@@ -255,117 +334,104 @@ export class HandAnalyzer {
       return [WaitType.TANKI]; // 国士無双も単騎待ち
     }
 
-    // 通常手の場合、仮想的に牌を追加してどの面子が完成するか確認
+    // 通常手の場合、テンパイ状態の面子構成から判定
     const waitTypes = new Set<WaitType>();
     
-    // 仮想手牌を作成（自摸牌なしで待ち牌を追加）
-    const virtualTiles = [...hand.getConcealedTiles()];
-    if (hand.drawnTile) {
-      // 自摸牌を一度だけ除去
-      const index = virtualTiles.findIndex(t => t.equals(hand.drawnTile!));
-      if (index >= 0) {
-        virtualTiles.splice(index, 1);
+    // テンパイ時の詳細情報を使用
+    if (progress.tenpaiEffectiveTiles) {
+      for (const compositionInfo of progress.tenpaiEffectiveTiles.compositionsWithEffectiveTiles) {
+        // コンポーネントベースのアプローチ
+        for (const compInfo of compositionInfo.componentsWithEffectiveTiles) {
+          if (compInfo.effectiveTiles.some(tile => tile.equals(waitingTile))) {
+            // 待ちタイプを直接取得
+            if (compInfo.waitType) {
+              this.addWaitTypeFromString(compInfo.waitType, waitTypes);
+            }
+          }
+        }
       }
-    }
-    virtualTiles.push(waitingTile);
-
-    const virtualHand = Hand.create(virtualTiles, hand.openMelds, {
-      drawnTile: waitingTile.toString(),
-      isTsumo: true,
-      gameContext: hand.gameContext
-    });
-
-    // 和了形の面子構成を取得
-    const shantenResult = this.shantenCalculator.calculateShanten(virtualHand, false);
-    if (shantenResult.shanten === -1 && shantenResult.optimalStates) {
-      // 各面子構成で待ちタイプを判定
-      for (const composition of shantenResult.optimalStates) {
-        const position = this.findTileInComposition(waitingTile, composition);
-        if (position) {
-          const component = composition.components[position.componentIndex];
-          const waitType = this.determineWaitTypeFromComponent(component, position.positionInComponent, waitingTile);
-          waitTypes.add(waitType);
+    } else if (progress.mentsuCompositions) {
+      // フォールバック: 従来の方法
+      for (const composition of progress.mentsuCompositions) {
+        for (const component of composition.components) {
+          if (component.type === ComponentType.TAATSU) {
+            const waitType = this.determineWaitTypeFromTaatsu(component, waitingTile);
+            if (waitType) {
+              waitTypes.add(waitType);
+            }
+          }
         }
       }
     }
 
-    return Array.from(waitTypes);
+    // 何も見つからない場合はタンキ待ち
+    return waitTypes.size > 0 ? Array.from(waitTypes) : [WaitType.TANKI];
   }
 
   /**
-   * 和了牌に対する待ちタイプを判定
+   * 文字列の待ちタイプをWaitTypeに変換して追加
    */
-  private analyzeWaitTypesForWinningTile(hand: Hand, winningTile: Tile): WaitType[] {
-    const shantenResult = this.shantenCalculator.calculateShanten(hand, true);
-    
-    if (shantenResult.handType === HandType.CHITOITSU) {
-      return [WaitType.TANKI];
+  private addWaitTypeFromString(waitTypeStr: string, waitTypes: Set<WaitType>): void {
+    switch (waitTypeStr) {
+      case 'ryanmen':
+        waitTypes.add(WaitType.RYANMEN);
+        break;
+      case 'kanchan':
+        waitTypes.add(WaitType.KANCHAN);
+        break;
+      case 'penchan':
+        waitTypes.add(WaitType.PENCHAN);
+        break;
+      case 'tanki':
+        waitTypes.add(WaitType.TANKI);
+        break;
+      case 'shanpon':
+        waitTypes.add(WaitType.SHANPON);
+        break;
     }
-    if (shantenResult.handType === HandType.KOKUSHI) {
-      return [WaitType.TANKI];
-    }
-
-    // 通常手の場合
-    const waitTypes = new Set<WaitType>();
-    const compositions = this.analyzeWinningComposition(hand);
-    
-    for (const composition of compositions) {
-      const component = composition.components[composition.winningTilePosition.componentIndex];
-      const waitType = this.determineWaitTypeFromComponent(
-        component,
-        composition.winningTilePosition.positionInComponent,
-        winningTile
-      );
-      waitTypes.add(waitType);
-    }
-
-    return Array.from(waitTypes);
   }
 
   /**
-   * 面子構成内で牌を検索
+   * 塔子から待ちタイプを判定
    */
-  private findTileInComposition(tile: Tile, composition: MentsuComposition): { componentIndex: number, positionInComponent: number } | null {
-    for (let i = 0; i < composition.components.length; i++) {
-      const component = composition.components[i];
-      for (let j = 0; j < component.tiles.length; j++) {
-        if (component.tiles[j].equals(tile)) {
-          return { componentIndex: i, positionInComponent: j };
-        }
+  private determineWaitTypeFromTaatsu(taatsu: Component, waitingTile: Tile): WaitType | null {
+    if (taatsu.tiles.length !== 2) {
+      return null;
+    }
+
+    const [tile1, tile2] = taatsu.tiles;
+    
+    // 同じスートでない場合は判定不可
+    if (tile1.suit !== tile2.suit || tile1.suit !== waitingTile.suit) {
+      return null;
+    }
+
+    const values = [tile1.value, tile2.value].sort((a, b) => a - b);
+    const waitValue = waitingTile.value;
+
+    // 連続する2牌の塔子の場合
+    if (values[1] - values[0] === 1) {
+      // 両面塔子の可能性
+      if (waitValue === values[0] - 1) {
+        // 下側に入る場合
+        // 完成順子が 123 なら waitValue=1 でペンチャン、それ以外はリャンメン
+        return waitValue === 1 ? WaitType.PENCHAN : WaitType.RYANMEN;
+      } else if (waitValue === values[1] + 1) {
+        // 上側に入る場合
+        // 完成順子が 789 なら waitValue=9 でペンチャン、 123 なら waitValue=3 でペンチャン
+        const completedSequence = [values[0], values[1], waitValue].sort((a, b) => a - b);
+        return (completedSequence[0] === 1 || completedSequence[2] === 9) ? WaitType.PENCHAN : WaitType.RYANMEN;
       }
     }
+    
+    // 1つ飛びの塔子の場合（嵌張）
+    if (values[1] - values[0] === 2) {
+      if (waitValue === values[0] + 1) {
+        return WaitType.KANCHAN;
+      }
+    }
+
     return null;
-  }
-
-  /**
-   * コンポーネントと位置から待ちタイプを判定
-   */
-  private determineWaitTypeFromComponent(component: Component, position: number, _tile: Tile): WaitType {
-    switch (component.type) {
-      case ComponentType.PAIR:
-        return WaitType.TANKI; // 対子完成は単騎待ち
-        
-      case ComponentType.TRIPLET:
-        return WaitType.SHANPON; // 刻子完成は双碰待ち
-        
-      case ComponentType.SEQUENCE:
-        // 順子の場合、位置によって判定
-        if (component.tiles.length !== 3) return WaitType.TANKI;
-        
-        const firstValue = component.tiles[0].value;
-        const isTerminal = firstValue === 1 || firstValue === 7;
-        
-        if (position === 0) {
-          return isTerminal && firstValue === 1 ? WaitType.PENCHAN : WaitType.RYANMEN;
-        } else if (position === 2) {
-          return isTerminal && firstValue === 7 ? WaitType.PENCHAN : WaitType.RYANMEN;
-        } else {
-          return WaitType.KANCHAN; // 真ん中は嵌張
-        }
-        
-      default:
-        return WaitType.TANKI;
-    }
   }
 
 }

@@ -176,14 +176,10 @@ export class ShantenCalculator {
   private backtrack(tiles: TileCount, position: number, state: MentsuComposition, context: MentsuAnalysisContext): void {
     // 全ての位置を処理済み
     if (position > MAX_TILE_INDEX) {
-      // 残り牌を孤立牌として追加（デバッグ時のみ）
-      if (context.debugMode) {
-        this.addRemainingTilesToState(tiles, state);
-      }
+      // 残り牌を孤立牌として追加（常に実行）
+      this.addRemainingTilesToState(tiles, state);
       this.evaluateState(tiles, state, context);
-      if (context.debugMode) {
-        this.removeRemainingTilesFromState(tiles, state);
-      }
+      this.removeRemainingTilesFromState(tiles, state);
       return;
     }
     
