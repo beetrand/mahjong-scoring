@@ -119,7 +119,7 @@ function testNewHandAnalyzer(): void {
     // 新しい形式では手牌タイプ別の分類は省略（シンプルな有効牌リストのみ）
   }
   
-  // テスト5: 待ちタイプ分析
+  // テスト5: 待ちタイプ分析（tenpaiEffectiveTilesを使用）
   console.log('\n5. 待ちタイプ分析（複数待ち）');
   const tiles5 = [
     new Tile('1m'), new Tile('2m'), new Tile('3m'),
@@ -135,12 +135,21 @@ function testNewHandAnalyzer(): void {
     gameContext
   });
   
-  const waitTypeAnalysis = analyzer.analyzeWaitTypes(hand5);
-  console.log(`  複数の待ちタイプ: ${waitTypeAnalysis.hasMultipleWaitTypes}`);
-  console.log('  待ち牌詳細:');
-  waitTypeAnalysis.waitingTiles.forEach(info => {
-    console.log(`    ${info.tile.toString()}: ${info.waitTypes.join(', ')}`);
-  });
+  const progress5 = analyzer.analyzeHandProgress(hand5);
+  console.log(`  テンパイ: ${progress5.isTenpai}`);
+  if (progress5.isTenpai && progress5.tenpaiEffectiveTiles) {
+    console.log('  待ち牌詳細:');
+    const waitTypes = new Set<string>();
+    progress5.tenpaiEffectiveTiles.compositionsWithEffectiveTiles.forEach(comp => {
+      comp.componentsWithEffectiveTiles.forEach(compInfo => {
+        compInfo.effectiveTiles.forEach(tile => {
+          console.log(`    ${tile.toString()}: ${compInfo.waitType}`);
+          waitTypes.add(compInfo.waitType);
+        });
+      });
+    });
+    console.log(`  複数の待ちタイプ: ${waitTypes.size > 1}`);
+  }
 }
 
 // テスト実行

@@ -94,16 +94,9 @@ export class SimpleMahjongGame {
       const winAnalysis = this.handAnalyzer.analyzeWinning(this.hand);
       if (winAnalysis.isWinning) {
         console.log('\n🎉 和了！おめでとうございます！');
-        console.log(`最終手牌: ${this.hand.getConcealedTiles().map(t => this.formatTile(t)).join(' ')}`);
         
-        // 待ちタイプを表示
-        if (winAnalysis.winningInfo) {
-          // 和了時の待ちタイプを表示（新しい構造）
-          const waitTypes = winAnalysis.winningInfo.compositionsWithWaitTypes.map(cwt => cwt.waitType);
-          const uniqueWaitTypes = [...new Set(waitTypes)];
-          const waitTypesStr = uniqueWaitTypes.map(wt => this.getWaitTypeName(wt)).join('・');
-          console.log(`待ちの種類: ${waitTypesStr}`);
-        }
+        // 和了詳細情報を表示
+        this.displayWinningDetails(winAnalysis);
         break;
       }
       
@@ -249,7 +242,69 @@ export class SimpleMahjongGame {
     }
   }
 
-  // 古いdisplayEffectiveTileDetailsメソッドは削除（新しいシンプルな形式を使用）
+  private displayWinningDetails(winAnalysis: any): void {
+    console.log(`最終手牌: ${this.hand.getConcealedTiles().map(t => this.formatTile(t)).join(' ')}`);
+    
+    if (!winAnalysis.winningInfo) {
+      return;
+    }
+    
+    const winningInfo = winAnalysis.winningInfo;
+    const progress = winAnalysis.handProgress;
+    
+    // 和了牌を強調表示
+    console.log(`和了牌: ${this.formatTile(winningInfo.winningTile)} (自摸)`);
+    
+    // 手牌タイプを表示
+    console.log(`手牌タイプ: ${this.getHandTypeName(progress.handType)}`);
+    
+    // 待ちタイプを表示
+    if (winningInfo.compositionsWithWaitTypes.length > 0) {
+      const waitTypes = winningInfo.compositionsWithWaitTypes.map((cwt: any) => cwt.waitType as string);
+      const uniqueWaitTypes = [...new Set(waitTypes)];
+      const waitTypesStr = uniqueWaitTypes.map(wt => this.getWaitTypeName(wt as string)).join('・');
+      console.log(`待ちの種類: ${waitTypesStr}`);
+      
+      // 面子構成の詳細を表示
+      console.log('\n面子構成の詳細:');
+      winningInfo.compositionsWithWaitTypes.forEach((cwt: any, index: number) => {
+        console.log(`  パターン${index + 1}: ${this.getWaitTypeName(cwt.waitType as string)}`);
+        
+        // 面子構成を表示
+        if (cwt.composition && cwt.composition.components) {
+          cwt.composition.components.forEach((component: any, compIndex: number) => {
+            const tilesStr = component.tiles.map((t: any) => this.formatTile(t)).join(' ');
+            const componentType = this.getComponentTypeName(component.type);
+            
+            // 和了牌が入った面子を強調
+            if (compIndex === cwt.composition.winningTilePosition.componentIndex) {
+              console.log(`    ${componentType}: [${tilesStr}] ← 和了牌が入った面子`);
+            } else {
+              console.log(`    ${componentType}: [${tilesStr}]`);
+            }
+          });
+        }
+      });
+    }
+    
+    // テンパイ時の待ち牌情報も表示
+    if (progress.tenpaiEffectiveTiles && progress.tenpaiEffectiveTiles.allEffectiveTiles.length > 0) {
+      const allWaitingTiles = this.groupTilesByType(progress.tenpaiEffectiveTiles.allEffectiveTiles);
+      console.log(`\n全待ち牌: ${allWaitingTiles}`);
+    }
+  }
+
+  private getComponentTypeName(componentType: string): string {
+    switch (componentType) {
+      case 'sequence': return '順子';
+      case 'triplet': return '刻子';
+      case 'quad': return '槓子';
+      case 'pair': return '対子';
+      case 'taatsu': return '塔子';
+      case 'isolated': return '孤立牌';
+      default: return componentType;
+    }
+  }
 
   private getHandTypeName(handType: string): string {
     switch (handType) {
